@@ -26,7 +26,7 @@ trait ArrayLoops extends Loops with OverloadHack {
 }
 
 
-trait ArrayLoopsExp extends LoopsExp {
+trait ArrayLoopsExp extends ArrayOpsExp with LoopsExp { //A.Filippov - add ArrayOpsExp
   
   case class ArrayElem[T](y: Block[T]) extends Def[Array[T]]
   case class ReduceElem(y: Block[Double]) extends Def[Double]
@@ -37,7 +37,7 @@ trait ArrayLoopsExp extends LoopsExp {
   case class FlattenElem[T](y: Block[Array[T]]) extends Def[Array[T]]
 
   case class ArrayIndex[T](a: Rep[Array[T]], i: Rep[Int]) extends Def[T]  
-  case class ArrayLength[T](a: Rep[Array[T]]) extends Def[Int]
+  // case class ArrayLength[T](a: Rep[Array[T]]) extends Def[Int] // A.Filippov - this class is defined in ArrayOpsExp
   
   def array[T:Manifest](shape: Rep[Int])(f: Rep[Int] => Rep[T]): Rep[Array[T]] = {
     val x = fresh[Int]

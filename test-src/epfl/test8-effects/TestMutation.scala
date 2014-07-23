@@ -28,7 +28,7 @@ trait ArrayMutation extends ArrayLoops {
 
 trait ArrayMutationExp extends ArrayMutation with ArrayLoopsExp {
   
-  case class ArrayUpdate[T](a: Rep[Array[T]], i: Rep[Int], x: Rep[T]) extends Def[Unit]
+  //case class ArrayUpdate[T](a: Rep[Array[T]], i: Rep[Int], x: Rep[T]) extends Def[Unit]
   case class ArrayMutable[T](a: Rep[Array[T]]) extends Def[Array[T]]
   case class ArrayClone[T](a: Rep[Array[T]]) extends Def[Array[T]]
   
