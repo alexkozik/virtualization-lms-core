@@ -156,11 +156,13 @@ trait ScalaGenArrayLoopsFat extends ScalaGenArrayLoops with ScalaGenLoopsFat {
           case ReduceElem(y) =>
             stream.println("var " + quote(l) + ": " + remap(getBlockResult(y).tp) + " = 0")
           case ArrayIfElem(c,y) =>
-            stream.println("var " + quote(l) + " = new scala.collection.mutable.ArrayBuilder[" + remap(getBlockResult(y).tp) + "]")
+            stream.println("implicit def bufferToArray[X](buf: scala.collection.mutable.ArrayBuffer[X])(implicit cTag:scala.reflect.ClassTag[X]): Array[X] = buf.toArray")
+            stream.println("var " + quote(l) + " = new scala.collection.mutable.ArrayBuffer[" + remap(getBlockResult(y).tp) + "]")
           case ReduceIfElem(c,y) =>
             stream.println("var " + quote(l) + ": " + remap(getBlockResult(y).tp) + " = 0")
           case FlattenElem(y) =>
-            stream.println("var " + quote(l) + " = new scala.collection.mutable.ArrayBuilder[" + remap(getBlockResult(y).tp) + "]")
+            stream.println("implicit def bufferToArray[X](buf: scala.collection.mutable.ArrayBuffer[X])(implicit cTag:scala.reflect.ClassTag[X]): Array[X] = buf.toArray")
+            stream.println("var " + quote(l) + " = new scala.collection.mutable.ArrayBuffer[" + remap(getBlockResult(y).tp) + "]")
         }
       }
       val ii = x // was: x(i)
@@ -187,6 +189,7 @@ trait ScalaGenArrayLoopsFat extends ScalaGenArrayLoops with ScalaGenLoopsFat {
       }
 //      stream.println(quote(ii)+" += 1")
       stream.println("}")
+      
     case _ => super.emitFatNode(sym, rhs)
   }
 }
