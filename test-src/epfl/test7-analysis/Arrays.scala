@@ -148,7 +148,7 @@ trait ScalaGenArrayLoopsFat extends ScalaGenArrayLoops with ScalaGenLoopsFat {
   import IR._
   
   override def emitFatNode(sym: List[Sym[Any]], rhs: FatDef) = rhs match {
-    case SimpleFatLoop(s,x,rhs) => 
+    case SimpleFatLoop(s,x,rhs) => {
       for ((l,r) <- sym zip rhs) {
         r match {
           case ArrayElem(y) =>
@@ -156,13 +156,11 @@ trait ScalaGenArrayLoopsFat extends ScalaGenArrayLoops with ScalaGenLoopsFat {
           case ReduceElem(y) =>
             stream.println("var " + quote(l) + ": " + remap(getBlockResult(y).tp) + " = 0")
           case ArrayIfElem(c,y) =>
-            stream.println("implicit def bufferToArray[X](buf: scala.collection.mutable.ArrayBuffer[X])(implicit cTag:scala.reflect.ClassTag[X]): Array[X] = buf.toArray")
-            stream.println("var " + quote(l) + " = new scala.collection.mutable.ArrayBuffer[" + remap(getBlockResult(y).tp) + "]")
+            stream.println("var " + quote(l) + "_buf = new scala.collection.mutable.ArrayBuffer[" + remap(getBlockResult(y).tp) + "]")
           case ReduceIfElem(c,y) =>
             stream.println("var " + quote(l) + ": " + remap(getBlockResult(y).tp) + " = 0")
           case FlattenElem(y) =>
-            stream.println("implicit def bufferToArray[X](buf: scala.collection.mutable.ArrayBuffer[X])(implicit cTag:scala.reflect.ClassTag[X]): Array[X] = buf.toArray")
-            stream.println("var " + quote(l) + " = new scala.collection.mutable.ArrayBuffer[" + remap(getBlockResult(y).tp) + "]")
+            stream.println("var " + quote(l) + "_buf = new scala.collection.mutable.ArrayBuffer[" + remap(getBlockResult(y).tp) + "]")
         }
       }
       val ii = x // was: x(i)
@@ -180,16 +178,25 @@ trait ScalaGenArrayLoopsFat extends ScalaGenArrayLoops with ScalaGenLoopsFat {
           case ReduceElem(y) =>
             stream.println(quote(l) + " += " + quote(getBlockResult(y)))
           case ArrayIfElem(c,y) =>
-            stream.println("if ("+quote(/*getBlockResult*/(c))+") " + quote(l) + " += " + quote(getBlockResult(y)))
+            stream.println("if ("+quote(/*getBlockResult*/(c))+") " + quote(l) + "_buf += " + quote(getBlockResult(y)))
           case ReduceIfElem(c,y) =>
             stream.println("if ("+quote(/*getBlockResult*/(c))+") " + quote(l) + " += " + quote(getBlockResult(y)))
           case FlattenElem(y) =>
-            stream.println(quote(l) + " ++= " + quote(getBlockResult(y)))
+            stream.println(quote(l) + "_buf ++= " + quote(getBlockResult(y)))
         }
       }
 //      stream.println(quote(ii)+" += 1")
       stream.println("}")
-      
+      for ((l,r) <- sym zip rhs) {
+        r match {
+          case ArrayIfElem(_, _) =>       
+            stream.println("val " + quote(l) + " = " + quote(l) + "_buf.toArray")
+          case FlattenElem(_) =>
+            stream.println("val " + quote(l) + " = " + quote(l) + "_buf.toArray")
+          case _ => 
+        }
+      }      
+    }
     case _ => super.emitFatNode(sym, rhs)
   }
 }
