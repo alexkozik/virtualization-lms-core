@@ -156,11 +156,11 @@ trait ScalaGenArrayLoopsFat extends ScalaGenArrayLoops with ScalaGenLoopsFat {
           case ReduceElem(y) =>
             stream.println("var " + quote(l) + ": " + remap(getBlockResult(y).tp) + " = 0")
           case ArrayIfElem(c,y) =>
-            stream.println("var " + quote(l) + "_buf = new scala.collection.mutable.ArrayBuffer[" + remap(getBlockResult(y).tp) + "]")
+            stream.println("var " + quote(l) + "_buf = scala.collection.mutable.ArrayBuilder.make[" + remap(getBlockResult(y).tp) + "]")
           case ReduceIfElem(c,y) =>
             stream.println("var " + quote(l) + ": " + remap(getBlockResult(y).tp) + " = 0")
           case FlattenElem(y) =>
-            stream.println("var " + quote(l) + "_buf = new scala.collection.mutable.ArrayBuffer[" + remap(getBlockResult(y).tp) + "]")
+            stream.println("var " + quote(l) + "_buf = scala.collection.mutable.ArrayBuilder.make[" + remap(getBlockResult(y).tp) + "]")
         }
       }
       val ii = x // was: x(i)
@@ -190,7 +190,7 @@ trait ScalaGenArrayLoopsFat extends ScalaGenArrayLoops with ScalaGenLoopsFat {
       for ((l,r) <- sym zip rhs) {
         r match {
           case ArrayIfElem(_, _) =>       
-            stream.println("val " + quote(l) + " = " + quote(l) + "_buf.toArray")
+            stream.println("val " + quote(l) + " = " + quote(l) + "_buf.result")
           case FlattenElem(_) =>
             stream.println("val " + quote(l) + " = " + quote(l) + "_buf.toArray")
           case _ => 
