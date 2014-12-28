@@ -192,7 +192,7 @@ trait ScalaGenArrayLoopsFat extends ScalaGenArrayLoops with ScalaGenLoopsFat {
           case ArrayIfElem(_, _) =>       
             stream.println("val " + quote(l) + " = " + quote(l) + "_buf.result")
           case FlattenElem(_) =>
-            stream.println("val " + quote(l) + " = " + quote(l) + "_buf.toArray")
+            stream.println("val " + quote(l) + " = " + quote(l) + "_buf.result")
           case _ => 
         }
       }      
