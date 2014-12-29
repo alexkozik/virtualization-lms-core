@@ -31,7 +31,6 @@ trait ArrayBuilderOps extends Base {
   def infix_result[A:Manifest](l: Rep[ArrayBuilder[A]])(implicit pos: SourceContext) = arraybuilder_result(l)
   */
   
-  def arraybuilder_mkstring[A:Manifest](l: Rep[ArrayBuilder[A]], sep: Rep[String])(implicit pos: SourceContext): Rep[String]
   def arraybuilder_append[A:Manifest](l: Rep[ArrayBuilder[A]], e: Rep[A])(implicit pos: SourceContext): Rep[Unit]
   def arraybuilder_make[A:Manifest]()(implicit pos: SourceContext): Rep[ArrayBuilder[A]]
   def arraybuilder_clear[A:Manifest](l: Rep[ArrayBuilder[A]]): Rep[Unit]
@@ -42,13 +41,11 @@ trait ArrayBuilderOpsExp extends ArrayBuilderOps with EffectExp {
   case class ArrayBuilderMake[A:Manifest]() extends Def[ArrayBuilder[A]]  {
     val mA = manifest[A]
   }
-  case class ArrayBuilderMkString[A:Manifest](l: Exp[ArrayBuilder[A]], sep: Exp[String]) extends Def[String]
   case class ArrayBuilderAppend[A:Manifest](l: Exp[ArrayBuilder[A]], e: Exp[A]) extends Def[Unit]
   case class ArrayBuilderClear[A:Manifest](l: Exp[ArrayBuilder[A]]) extends Def[Unit]
   case class ArrayBuilderResult[A:Manifest](x: Exp[ArrayBuilder[A]]) extends Def[Array[A]]
 
   def arraybuilder_make[A:Manifest]()(implicit pos: SourceContext) = reflectMutable(ArrayBuilderMake())
-  def arraybuilder_mkstring[A:Manifest](l: Exp[ArrayBuilder[A]], sep: Exp[String])(implicit pos: SourceContext) = ArrayBuilderMkString(l, sep)
   def arraybuilder_append[A:Manifest](l: Exp[ArrayBuilder[A]], e: Exp[A])(implicit pos: SourceContext) = reflectWrite(l)(ArrayBuilderAppend(l, e))
   def arraybuilder_clear[A:Manifest](l: Exp[ArrayBuilder[A]]) = reflectWrite(l)(ArrayBuilderClear(l))
   def arraybuilder_result[A:Manifest](x: Exp[ArrayBuilder[A]])(implicit pos: SourceContext) = ArrayBuilderResult(x)
@@ -57,18 +54,10 @@ trait ArrayBuilderOpsExp extends ArrayBuilderOps with EffectExp {
   // mirroring
 
   override def mirrorDef[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Def[A] = (e match {
-    case ArrayBuilderMkString(l,r) => ArrayBuilderMkString(f(l),f(r))
+    case ArrayBuilderResult(l) => ArrayBuilderResult(f(l))
     case ArrayBuilderAppend(l,r) => ArrayBuilderAppend(f(l),f(r))
     case _ => super.mirrorDef(e,f)
   }).asInstanceOf[Def[A]] // why??
-  
-/*
-  override def mirror[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Exp[A] = (e match {
-    case Reflect(ArrayBuilderMkString(l,r), u, es) => reflectMirrored(Reflect(ArrayBuilderMkString(f(l),f(r)), mapOver(f,u), f(es)))(mtype(manifest[A]))
-    case Reflect(ArrayBuilderAppend(l,r), u, es) => reflectMirrored(Reflect(ArrayBuilderAppend(f(l),f(r)), mapOver(f,u), f(es)))(mtype(manifest[A]))
-    case _ => super.mirror(e,f)
-  }).asInstanceOf[Exp[A]] // why??
-*/
 }
 
 trait BaseGenArrayBuilderOps extends GenericNestedCodegen {
