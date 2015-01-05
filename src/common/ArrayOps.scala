@@ -105,6 +105,7 @@ trait ArrayOpsExp extends ArrayOps with EffectExp with VariablesExp {
     case Reflect(ArrayForeach(a,x,b), u, es) => reflectMirrored(Reflect(ArrayForeach(f(a),f(x).asInstanceOf[Sym[A]],f(b)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)    
     case e@ArraySort(x) => array_sort(f(x))(e.m,pos)
     case e@ArrayCopy(a,ap,d,dp,l) => toAtom(ArrayCopy(f(a),f(ap),f(d),f(dp),f(l))(e.m))(mtype(manifest[A]),pos)
+    case Reflect(ArrayMap(a,x,b), u, es) => reflectMirrored(Reflect(ArrayMap(f(a), f(x).asInstanceOf[Sym[A]], f(b)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)    
     case Reflect(e@ArrayNew(n), u, es) => reflectMirrored(Reflect(ArrayNew(f(n))(e.m), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)    
     case Reflect(e@ArrayLength(x), u, es) => reflectMirrored(Reflect(ArrayLength(f(x))(e.m), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)    
     case Reflect(ArrayApply(l,r), u, es) => reflectMirrored(Reflect(ArrayApply(f(l),f(r))(mtype(manifest[A])), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)

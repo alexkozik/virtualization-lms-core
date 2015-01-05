@@ -91,6 +91,7 @@ trait ArrayLoopsExp extends ArrayOpsExp with LoopsExp { //A.Filippov - add Array
 
 
   override def mirror[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Exp[A] = (e match {
+    case Reflect(ArrayIndex(l,r), u, es) => reflectMirrored(Reflect(ArrayIndex(f(l),f(r)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
     case SimpleLoop(s,i, ArrayElem(y)) if f.hasContext => 
       array(f(s)) { j => f.asInstanceOf[AbstractSubstTransformer{val IR:ArrayLoopsExp.this.type}].withSubstScope(i -> j) { f.reflectBlock(y) } }
     case ArrayIndex(a,i) => infix_at(f(a), f(i))(mtype(manifest[A]))
@@ -152,7 +153,7 @@ trait ScalaGenArrayLoopsFat extends ScalaGenArrayLoops with ScalaGenLoopsFat {
       for ((l,r) <- sym zip rhs) {
         r match {
           case ArrayElem(y) =>
-            stream.println("var " + quote(l) + " = new Array[" + remap(getBlockResult(y).tp) + "]("+quote(s)+")")
+            stream.println("var " + quote(l) + " = new Array[" + remap(getBlockResultFull(y).tp) + "]("+quote(s)+")")
           case ReduceElem(y) =>
             stream.println("var " + quote(l) + ": " + remap(getBlockResult(y).tp) + " = 0")
           case ArrayIfElem(c,y) =>
