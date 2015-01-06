@@ -216,6 +216,9 @@ trait PrimitiveOps extends Variables with OverloadHack {
     def MinValue(implicit pos: SourceContext) = obj_int_min_value
   }
 
+  def infix_toFloat(lhs: Rep[Int])(implicit o: Overloaded2, pos: SourceContext): Rep[Float] = int_to_float(lhs)
+  def infix_toDouble(lhs: Rep[Int])(implicit o: Overloaded2, pos: SourceContext): Rep[Double] = int_to_double(lhs) 
+ 
   implicit def intToIntOps(n: Int): IntOpsCls = new IntOpsCls(unit(n))
   implicit def repIntToIntOps(n: Rep[Int]): IntOpsCls = new IntOpsCls(n)
   implicit def varIntToIntOps(n: Var[Int]): IntOpsCls = new IntOpsCls(readVar(n))
