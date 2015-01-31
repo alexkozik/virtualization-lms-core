@@ -7,12 +7,13 @@ var x2 = new Array[Int](100)
 for (x1 <- 0 until 100) {
 x2(x1) = x1
 }
-var x6 = new ArrayBuilder[Int]
+var x6_buf = scala.collection.mutable.ArrayBuilder.make[Int]
 for (x3 <- 0 until 100) {
 val x4 = x2.apply(x3)
 val x5 = x4 > 50
-if (x5) x6 += x4
+if (x5) x6_buf += x4
 }
+val x6 = x6_buf.result
 val x7 = x6.length
 var x10: Int = 0
 for (x8 <- 0 until x7) {
