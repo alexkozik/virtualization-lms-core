@@ -17,8 +17,10 @@ import java.io.{PrintWriter,StringWriter,FileOutputStream}
 trait ArrayLoops extends Loops with OverloadHack {
   def array[T:Manifest](shape: Rep[Int])(f: Rep[Int] => Rep[T]): Rep[Array[T]]
   def sum(shape: Rep[Int])(f: Rep[Int] => Rep[Double]): Rep[Double] // TODO: make reduce operation configurable!
+  def sumInt(shape: Rep[Int])(f: Rep[Int] => Rep[Int]): Rep[Int] // TODO: make reduce operation configurable!
   def arrayIf[T:Manifest](shape: Rep[Int])(f: Rep[Int] => (Rep[Boolean],Rep[T])): Rep[Array[T]]
   def sumIf(shape: Rep[Int])(f: Rep[Int] => (Rep[Boolean],Rep[Double])): Rep[Double] // TODO: make reduce operation configurable!
+  def sumIfInt(shape: Rep[Int])(f: Rep[Int] => (Rep[Boolean],Rep[Int])): Rep[Int] // TODO: make reduce operation configurable!
   def flatten[T:Manifest](shape: Rep[Int])(f: Rep[Int] => Rep[Array[T]]): Rep[Array[T]]
 
   def infix_at[T:Manifest](a: Rep[Array[T]], i: Rep[Int]): Rep[T]
@@ -30,9 +32,11 @@ trait ArrayLoopsExp extends ArrayOpsExp with LoopsExp { //A.Filippov - add Array
   
   case class ArrayElem[T](y: Block[T]) extends Def[Array[T]]
   case class ReduceElem(y: Block[Double]) extends Def[Double]
+  case class ReduceIntElem(y: Block[Int]) extends Def[Int]
 
   case class ArrayIfElem[T](c: Exp[Boolean], y: Block[T]) extends Def[Array[T]]
   case class ReduceIfElem(c: Exp[Boolean], y: Block[Double]) extends Def[Double]
+  case class ReduceIfIntElem(c: Exp[Boolean], y: Block[Int]) extends Def[Int]
 
   case class FlattenElem[T](y: Block[Array[T]]) extends Def[Array[T]]
 
@@ -51,6 +55,12 @@ trait ArrayLoopsExp extends ArrayOpsExp with LoopsExp { //A.Filippov - add Array
     simpleLoop(shape, x, ReduceElem(y))
   }
 
+  def sumInt(shape: Rep[Int])(f: Rep[Int] => Rep[Int]): Rep[Int] = {
+    val x = fresh[Int]
+    val y = reifyEffects(f(x))
+    simpleLoop(shape, x, ReduceIntElem(y))
+  }
+
   def arrayIf[T:Manifest](shape: Rep[Int])(f: Rep[Int] => (Rep[Boolean],Rep[T])): Rep[Array[T]] = {
     val x = fresh[Int]
     //val (c,y) = f(x)
@@ -65,6 +75,14 @@ trait ArrayLoopsExp extends ArrayOpsExp with LoopsExp { //A.Filippov - add Array
     var c: Rep[Boolean] = null
     val y = reifyEffects { val p = f(x); c = p._1; p._2 }
     simpleLoop(shape, x, ReduceIfElem(c,y)) // TODO: simplify for const true/false
+  }
+
+  def sumIfInt(shape: Rep[Int])(f: Rep[Int] => (Rep[Boolean],Rep[Int])): Rep[Int] = {
+    val x = fresh[Int]
+    //val (c,y) = f(x)
+    var c: Rep[Boolean] = null
+    val y = reifyEffects { val p = f(x); c = p._1; p._2 }
+    simpleLoop(shape, x, ReduceIfIntElem(c,y)) // TODO: simplify for const true/false
   }
 
   def flatten[T:Manifest](shape: Rep[Int])(f: Rep[Int] => Rep[Array[T]]): Rep[Array[T]] = {
@@ -85,6 +103,7 @@ trait ArrayLoopsExp extends ArrayOpsExp with LoopsExp { //A.Filippov - add Array
   override def boundSyms(e: Any): List[Sym[Any]] = e match {
     case ArrayElem(y) => effectSyms(y)
     case ReduceElem(y) => effectSyms(y)
+    case ReduceIntElem(y) => effectSyms(y)
     case FlattenElem(y) => effectSyms(y)
     case _ => super.boundSyms(e)
   }
@@ -102,8 +121,11 @@ trait ArrayLoopsExp extends ArrayOpsExp with LoopsExp { //A.Filippov - add Array
   override def mirrorFatDef[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Def[A] = (e match {
     case ArrayElem(y) => ArrayElem(f(y))
     case ReduceElem(y) => ReduceElem(f(y))
+    case ReduceIntElem(y) => ReduceIntElem(f(y))
     case ArrayIfElem(c,y) => ArrayIfElem(f(c),f(y))
     case ReduceIfElem(c,y) => ReduceIfElem(f(c),f(y))
+    case ReduceIfIntElem(c,y) => ReduceIfIntElem(f(c),f(y))
+    case FlattenElem(y) => FlattenElem(f(y))
     case _ => super.mirrorFatDef(e,f)
   }).asInstanceOf[Def[A]]
 
@@ -126,6 +148,11 @@ trait ScalaGenArrayLoops extends ScalaGenLoops {
       stream.println(quote(getBlockResult(y)))
       stream.println("}")
     case SimpleLoop(s,x,ReduceElem(y)) =>  
+      stream.println("val " + quote(sym) + " = LoopReduce("+quote(s)+") { " + quote(x) + " => ")
+      emitBlock(y)
+      stream.println(quote(getBlockResult(y)))
+      stream.println("}")
+    case SimpleLoop(s,x,ReduceIntElem(y)) =>
       stream.println("val " + quote(sym) + " = LoopReduce("+quote(s)+") { " + quote(x) + " => ")
       emitBlock(y)
       stream.println(quote(getBlockResult(y)))
@@ -154,14 +181,22 @@ trait ScalaGenArrayLoopsFat extends ScalaGenArrayLoops with ScalaGenLoopsFat {
         r match {
           case ArrayElem(y) =>
             stream.println("var " + quote(l) + " = new Array[" + remap(getBlockResultFull(y).tp) + "]("+quote(s)+")")
+          // TODO generalize over Monoid
           case ReduceElem(y) =>
             stream.println("var " + quote(l) + ": " + remap(getBlockResult(y).tp) + " = 0")
+          case ReduceIntElem(y) =>
+            stream.println("var " + quote(l) + ": " + remap(getBlockResult(y).tp) + " = 0")
+
           case ArrayIfElem(c,y) =>
             stream.println("var " + quote(l) + "_buf = scala.collection.mutable.ArrayBuilder.make[" + remap(getBlockResult(y).tp) + "]")
           case ReduceIfElem(c,y) =>
             stream.println("var " + quote(l) + ": " + remap(getBlockResult(y).tp) + " = 0")
+          case ReduceIfIntElem(c,y) =>
+            stream.println("var " + quote(l) + ": " + remap(getBlockResult(y).tp) + " = 0")
           case FlattenElem(y) =>
-            stream.println("var " + quote(l) + "_buf = scala.collection.mutable.ArrayBuilder.make[" + remap(getBlockResult(y).tp) + "]")
+            val mR = getBlockResult(y).tp
+            assert(mR.runtimeClass.isArray)
+            stream.println("var " + quote(l) + "_buf = scala.collection.mutable.ArrayBuilder.make[" + remap(mR.typeArguments(0)) + "]")
         }
       }
       val ii = x // was: x(i)
@@ -178,9 +213,13 @@ trait ScalaGenArrayLoopsFat extends ScalaGenArrayLoops with ScalaGenLoopsFat {
             stream.println(quote(l) + "("+quote(ii)+") = " + quote(getBlockResult(y)))
           case ReduceElem(y) =>
             stream.println(quote(l) + " += " + quote(getBlockResult(y)))
+          case ReduceIntElem(y) =>
+            stream.println(quote(l) + " += " + quote(getBlockResult(y)))
           case ArrayIfElem(c,y) =>
             stream.println("if ("+quote(/*getBlockResult*/(c))+") " + quote(l) + "_buf += " + quote(getBlockResult(y)))
           case ReduceIfElem(c,y) =>
+            stream.println("if ("+quote(/*getBlockResult*/(c))+") " + quote(l) + " += " + quote(getBlockResult(y)))
+          case ReduceIfIntElem(c,y) =>
             stream.println("if ("+quote(/*getBlockResult*/(c))+") " + quote(l) + " += " + quote(getBlockResult(y)))
           case FlattenElem(y) =>
             stream.println(quote(l) + "_buf ++= " + quote(getBlockResult(y)))

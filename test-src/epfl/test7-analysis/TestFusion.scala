@@ -38,6 +38,7 @@ trait ScalaGenFatArrayLoopsFusionOpt extends ScalaGenArrayLoopsFat with ScalaGen
   override def applyAddCondition(e: Def[Any], c: List[Exp[Boolean]]) = e match { //TODO: should c be list or not?
     case ArrayElem(a) if c.length == 1 => ArrayIfElem(c(0),a)
     case ReduceElem(a) if c.length == 1 => ReduceIfElem(c(0),a)
+    case ReduceIntElem(a) if c.length == 1 => ReduceIfIntElem(c(0),a)
     case _ => super.applyAddCondition(e,c)
   }
 
