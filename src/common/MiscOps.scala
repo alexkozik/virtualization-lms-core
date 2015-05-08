@@ -13,6 +13,7 @@ trait MiscOps extends Base {
 
   def print(x: Rep[Any])(implicit pos: SourceContext): Rep[Unit]
   def println(x: Rep[Any])(implicit pos: SourceContext): Rep[Unit]
+  def readline(implicit pos: SourceContext): Rep[String]
   def printf(f: String, x: Rep[Any]*)(implicit pos: SourceContext): Rep[Unit]
 
   // TODO: there is no way to override this behavior
@@ -28,6 +29,7 @@ trait MiscOps extends Base {
 trait MiscOpsExp extends MiscOps with EffectExp {
   case class Print(x: Exp[Any]) extends Def[Unit]
   case class PrintLn(x: Exp[Any]) extends Def[Unit]
+  case class Readline() extends Def[String]
   case class PrintF(f: String, x: List[Exp[Any]]) extends Def[Unit]
   case class Exit(s: Exp[Int]) extends Def[Nothing]
   case class Error(s: Exp[String]) extends Def[Nothing]
@@ -35,6 +37,7 @@ trait MiscOpsExp extends MiscOps with EffectExp {
 
   def print(x: Exp[Any])(implicit pos: SourceContext) = reflectEffect(Print(x)) // TODO: simple effect
   def println(x: Exp[Any])(implicit pos: SourceContext) = reflectEffect(PrintLn(x)) // TODO: simple effect
+  def readline(implicit pos: SourceContext) = reflectEffect(Readline()) // TODO: simple effect
   def printf(f: String, x: Rep[Any]*)(implicit pos: SourceContext): Rep[Unit] = reflectEffect(PrintF(f, x.toList))
   def exit(s: Exp[Int])(implicit pos: SourceContext) = reflectEffect(Exit(s))
   def error(s: Exp[String])(implicit pos: SourceContext) = reflectEffect(Error(s))
@@ -48,6 +51,7 @@ trait MiscOpsExp extends MiscOps with EffectExp {
     case Reflect(Error(x), u, es) => reflectMirrored(Reflect(Error(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
     case Reflect(Print(x), u, es) => reflectMirrored(Reflect(Print(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
     case Reflect(PrintLn(x), u, es) => reflectMirrored(Reflect(PrintLn(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+    case Reflect(Readline(), u, es) => reflectMirrored(Reflect(Readline(), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
     case Reflect(PrintF(fm,x), u, es) => reflectMirrored(Reflect(PrintF(fm,f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
     case Reflect(Exit(x), u, es) => reflectMirrored(Reflect(Exit(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
     case Reflect(Return(x), u, es) => reflectMirrored(Reflect(Return(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
@@ -62,6 +66,7 @@ trait ScalaGenMiscOps extends ScalaGenEffect {
   override def emitNode(sym: Sym[Any], rhs: Def[Any]) = rhs match {
     case PrintF(f,xs) => emitValDef(sym, src"printf(${f::xs})")
     case PrintLn(s) => emitValDef(sym, src"println($s)")
+    case Readline() => emitValDef(sym, src"Predef.readLine()")
     case Print(s) => emitValDef(sym, src"print($s)")
     case Exit(a) => emitValDef(sym, src"exit($a)")
     case Return(x) => emitValDef(sym, src"return $x")

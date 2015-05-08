@@ -325,9 +325,9 @@ trait Effects extends Expressions with Blocks with Utils {
   
   def mutableTransitiveAliases(s: Any) = {
     val aliases = allAliases(s)
-    val globalAliases = aliases filter { a => globalAliases.contains(a) }
+    val gAliases = aliases filter { a => globalMutableSyms.contains(a) }
     val definedMutableSyms = utilLoadStms(aliases) collect { case TP(s2, Reflect(_, u, _)) if mustMutable(u) => s2 }
-    globalAliases ++ definedMutableSyms
+    gAliases ++ definedMutableSyms
   }
   
   
@@ -530,8 +530,10 @@ trait Effects extends Expressions with Blocks with Utils {
       // the mayPrune flag is for test8-speculative4: with pruning on, the 'previous iteration' 
       // dummy is moved out of the loop. this is not per se a problem -- need to look some more into it.
 
-      val readDeps = if (read.isEmpty) Nil else scope filter { case e@Def(Reflect(_, u, _)) => mayWrite(u, read) || read.contains(e) }
-      val softWriteDeps = if (write.isEmpty) Nil else scope filter { case e@Def(Reflect(_, u, _)) => mayRead(u, write) }
+      val readDeps = if (read.isEmpty) Nil
+                     else scope filter { case e@Def(Reflect(_, u, _)) => mayWrite(u, read) || read.contains(e) }
+      val softWriteDeps = if (write.isEmpty) Nil
+                     else scope filter { case e@Def(Reflect(_, u, _)) => mayRead(u, write) }
       val writeDeps = if (write.isEmpty) Nil else scope filter { case e@Def(Reflect(_, u, _)) => mayWrite(u, write) || write.contains(e) }
       val simpleDeps = if (!u.maySimple) Nil else scope filter { case e@Def(Reflect(_, u, _)) => u.maySimple }
       val controlDeps = if (!u.control) Nil else scope filter { case e@Def(Reflect(_, u, _)) => u.control }
