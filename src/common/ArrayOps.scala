@@ -56,6 +56,15 @@ trait ArrayOps extends Variables {
 trait ArrayOpsExp extends ArrayOps with EffectExp with VariablesExp {
   case class ArrayNew[T:Manifest](n: Exp[Int]) extends Def[Array[T]] {
     val m = manifest[T]
+//    override lazy val hashCode: Int = 41 * (41 + n.hashCode) + m.hashCode
+    override def equals(other: Any) =
+      other match {
+        case that: ArrayNew[_] =>
+          (that canEqual this) &&
+            (this.n equals that.n) &&
+            (this.m equals that.m)
+        case _ => false
+      }
   }
   case class ArrayFromSeq[T:Manifest](xs: Seq[Exp[T]]) extends Def[Array[T]] {
     val m = manifest[T]
