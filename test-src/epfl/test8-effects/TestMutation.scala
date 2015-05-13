@@ -18,7 +18,8 @@ import java.io.{PrintWriter,StringWriter,FileOutputStream}
 
 trait ArrayMutation extends ArrayLoops {
   
-  def infix_update[T:Manifest](a: Rep[Array[T]], i: Rep[Int], x: Rep[T]): Rep[Unit]
+  //def infix_update[T:Manifest](a: Rep[Array[T]], i: Rep[Int], x: Rep[T]): Rep[Unit]
+  //def infix_insert[T:Manifest](a: Rep[Array[T]], i: Rep[Int], x: Rep[T]): Rep[Array[T]]
 
   def infix_mutable[T:Manifest](a: Rep[Array[T]]): Rep[Array[T]]
   def infix_clone[T:Manifest](a: Rep[Array[T]]): Rep[Array[T]]
@@ -31,8 +32,8 @@ trait ArrayMutationExp extends ArrayMutation with ArrayLoopsExp {
   //case class ArrayUpdate[T](a: Rep[Array[T]], i: Rep[Int], x: Rep[T]) extends Def[Unit]
   case class ArrayMutable[T](a: Rep[Array[T]]) extends Def[Array[T]]
   case class ArrayClone[T](a: Rep[Array[T]]) extends Def[Array[T]]
-  
-  def infix_update[T:Manifest](a: Rep[Array[T]], i: Rep[Int], x: Rep[T]) = reflectWrite(a)(ArrayUpdate(a,i,x))
+
+  //def infix_update[T:Manifest](a: Rep[Array[T]], i: Rep[Int], x: Rep[T]) = reflectWrite(a)(ArrayUpdate(a,i,x))
 
   def infix_mutable[T:Manifest](a: Rep[Array[T]]) = reflectMutable(ArrayMutable(a))
   def infix_clone[T:Manifest](a: Rep[Array[T]]) = ArrayClone(a)
@@ -45,8 +46,6 @@ trait ArrayMutationExp extends ArrayMutation with ArrayLoopsExp {
     case SimpleLoop(s,i, ReduceIfElem(c,y)) => syms(y) // could also return zero value
     case SimpleLoop(s,i, ReduceIfIntElem(c,y)) => syms(y) // could also return zero value
     case ArrayIndex(a,i) => Nil
-    case ArrayLength(a) => Nil
-    case ArrayUpdate(a,i,x) => Nil // syms(a) <-- any use to return a?
     case ArrayMutable(a) => Nil
     case ArrayClone(a) => Nil
     case _ => super.aliasSyms(e)
@@ -60,8 +59,6 @@ trait ArrayMutationExp extends ArrayMutation with ArrayLoopsExp {
     case SimpleLoop(s,i, ReduceIfElem(c,y)) => Nil
     case SimpleLoop(s,i, ReduceIfIntElem(c,y)) => Nil
     case ArrayIndex(a,i) => Nil
-    case ArrayLength(a) => Nil
-    case ArrayUpdate(a,i,x) => syms(x)
     case ArrayMutable(a) => Nil
     case ArrayClone(a) => Nil
     case _ => super.containSyms(e)
@@ -75,8 +72,6 @@ trait ArrayMutationExp extends ArrayMutation with ArrayLoopsExp {
     case SimpleLoop(s,i, ReduceIfElem(c,y)) => Nil
     case SimpleLoop(s,i, ReduceIfIntElem(c,y)) => Nil
     case ArrayIndex(a,i) => syms(a)
-    case ArrayLength(a) => Nil
-    case ArrayUpdate(a,i,x) => Nil
     case ArrayMutable(a) => Nil
     case ArrayClone(a) => Nil
     case _ => super.extractSyms(e)
@@ -90,14 +85,10 @@ trait ArrayMutationExp extends ArrayMutation with ArrayLoopsExp {
     case SimpleLoop(s,i, ReduceIfElem(c,y)) => Nil
     case SimpleLoop(s,i, ReduceIfIntElem(c,y)) => Nil
     case ArrayIndex(a,i) => Nil
-    case ArrayLength(a) => Nil
-    case ArrayUpdate(a,i,x) => syms(a)
     case ArrayMutable(a) => syms(a)
     case ArrayClone(a) => syms(a)
     case _ => super.copySyms(e)
   }  
-  
-  
 }
 
 trait ScalaGenArrayMutation extends ScalaGenArrayLoops {
@@ -105,9 +96,7 @@ trait ScalaGenArrayMutation extends ScalaGenArrayLoops {
   import IR._
   
   override def emitNode(sym: Sym[Any], rhs: Def[Any]) = rhs match {
-    case ArrayUpdate(a,i,x) => 
-      emitValDef(sym, quote(a) + ".update(" + quote(i) + ", " + quote(x) + ")")
-    case ArrayMutable(a) =>  
+    case ArrayMutable(a) =>
       emitValDef(sym, quote(a) + ".clone // mutable")
     case ArrayClone(a) =>  
       emitValDef(sym, quote(a) + ".clone")
@@ -123,7 +112,7 @@ class TestMutation extends FileDiffSuite {
   
   val prefix = home + "test-out/epfl/test8-"
   
-  trait DSL extends ArrayMutation with Arith with OrderingOps with Variables with IfThenElse with While with RangeOps with Print {
+  trait DSL extends ArrayOps with ArrayMutation with Arith with OrderingOps with Variables with IfThenElse with While with RangeOps with Print {
     def zeros(l: Rep[Int]) = array(l) { i => 0 }
     def mzeros(l: Rep[Int]) = zeros(l).mutable
     def infix_toDouble(x: Rep[Int]): Rep[Double] = x.asInstanceOf[Rep[Double]]

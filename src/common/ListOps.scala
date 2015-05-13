@@ -22,6 +22,7 @@ trait ListOps extends Variables {
     def sortBy[B:Manifest:Ordering](f: Rep[A] => Rep[B]) = list_sortby(l,f)
     def ::(e: Rep[A]) = list_prepend(l,e)
     def ++ (l2: Rep[List[A]]) = list_concat(l, l2)
+    def ::: (l2: Rep[List[A]]) = list_concat(l, l2)
     def mkString = list_mkString(l)
     def mkString(s:Rep[String]) = list_mkString2(l,s)
     def head = list_head(l)
@@ -29,6 +30,16 @@ trait ListOps extends Variables {
     def isEmpty = list_isEmpty(l)
     def toArray = list_toarray(l)
     def toSeq = list_toseq(l)
+
+//    def apply(n: Rep[Int]): Rep[A] = list_apply(l, n)
+//    def apply(ns: Rep[Array[Int]])(implicit o: Overloaded1): Rep[List[A]] = list_applyMany(l, ns)
+//
+//    def length = list_length(l)
+//    def foldLeft[S: Manifest](init: Rep[S])(f: Rep[((S, A)) => S]): Rep[S] = list_foldLeft[A, S](l, init, f)
+//    def foldRight[S: Manifest](init: Rep[S])(f: Rep[((A,S)) => S]): Rep[S] = list_foldRight[A, S](l, init, f)
+//    def zip[U: Manifest](ys: Rep[List[U]]): Rep[List[(A, U)]] = list_zip(l, ys)
+//    def reverse = list_reverse(l)
+//    def slice(start: Rep[Int], length: Rep[Int]) = list_slice(l,start, start + length)
   }
   
   def list_new[A:Manifest](xs: Seq[Rep[A]])(implicit pos: SourceContext): Rep[List[A]]
@@ -47,6 +58,36 @@ trait ListOps extends Variables {
   def list_head[A:Manifest](xs: Rep[List[A]])(implicit pos: SourceContext): Rep[A]
   def list_tail[A:Manifest](xs: Rep[List[A]])(implicit pos: SourceContext): Rep[List[A]]
   def list_isEmpty[A:Manifest](xs: Rep[List[A]])(implicit pos: SourceContext): Rep[Boolean]
+
+
+//  def list_length[T](xs: Rep[List[T]])(implicit pos: SourceContext): Rep[Int]
+//
+////  def list_reduce[T](xs: Rep[List[T]])(implicit m: RepMonoid[T]): Rep[T]
+//  def list_foldLeft[T,S:Manifest](xs: Rep[List[T]], init:Rep[S], f:Rep[((S,T))=>S])(implicit pos: SourceContext): Rep[S]
+//  def list_foldRight[T,S:Manifest](xs: Rep[List[T]], init:Rep[S], f:Rep[((T,S))=>S])(implicit pos: SourceContext): Rep[S]
+//
+//  // provide: res._1.length == xs.length && res._2 = list_reduce(xs)
+////  def list_scan[T](xs: Rep[List[T]])(implicit m: RepMonoid[T], elem : Manifest[T]): Rep[(List[T], T)]
+//
+//  // require: xs.length == ys.length
+//  // provide: res.length == xs.length
+//  def list_zip[T:Manifest, U:Manifest](xs: Rep[List[T]], ys: Rep[List[U]])(implicit pos: SourceContext): Rep[List[(T, U)]]
+//
+//  // provide: res.length == len
+//  def list_replicate[T: Manifest](len: Rep[Int], v: Rep[T])(implicit pos: SourceContext): Rep[List[T]]
+//
+//  // provide: res.length = n
+//  def list_rangeFrom0(n: Rep[Int]): Rep[List[Int]]
+//
+//  def list_reverse[T:Manifest](xs: Rep[List[T]]): Rep[List[T]]
+//
+//  def list_slice[T:Manifest](xs: Rep[List[T]], start: Rep[Int], len: Rep[Int]) : Rep[List[T]]
+//  // require: n in xs.indices
+//  def list_apply[T:Manifest](xs: Rep[List[T]], n: Rep[Int]): Rep[T]
+//
+//  // require: forall i -> is(i) in xs.indices
+//  // provide: res.length == is.length
+//  def list_applyMany[T:Manifest](xs: Rep[List[T]], is: Rep[Array[Int]]): Rep[List[T]]
 }
 
 trait ListOpsExp extends ListOps with EffectExp with VariablesExp {
