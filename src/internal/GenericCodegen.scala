@@ -248,6 +248,7 @@ trait GenericNestedCodegen extends NestedBlockTraversal with GenericCodegen {
     case Reflect(s, u, effects) =>
       emitNode(sym, s)
     case Reify(s, u, effects) =>
+      emitValDef(sym, quote(s))
       // just ignore -- effects are accounted for in emitBlock
     case _ => super.emitNode(sym, rhs)
   }
