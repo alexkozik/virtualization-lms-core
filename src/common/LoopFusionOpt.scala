@@ -280,7 +280,8 @@ trait LoopFusionCore extends internal.FatScheduling with CodeMotion with Simplif
        to the fused version without recomputing as much as we do now?
     */
 
-    if (Wloops.nonEmpty) {
+    Wloops.nonEmpty match {
+    case true =>
       var done = false
 
       // keep track of loops in inner scopes
@@ -482,6 +483,7 @@ trait LoopFusionCore extends internal.FatScheduling with CodeMotion with Simplif
           return fuseTopLevelLoops(currentScope)(result)
         }
         printlog("no changes, we're done")
+    case _ =>
     }
 
 /*
