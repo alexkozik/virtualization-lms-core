@@ -39,6 +39,7 @@ trait ArrayLoopsExp extends ArrayOpsExp with LoopsExp { //A.Filippov - add Array
   case class ReduceIfIntElem(c: Exp[Boolean], y: Block[Int]) extends Def[Int]
 
   case class FlattenElem[T](y: Block[Array[T]]) extends Def[Array[T]]
+  case class FlattenIfElem[T](c: Exp[Boolean], y: Block[Array[T]]) extends Def[Array[T]]
 
   case class ArrayIndex[T](a: Rep[Array[T]], i: Rep[Int]) extends Def[T]  
   // case class ArrayLength[T](a: Rep[Array[T]]) extends Def[Int] // A.Filippov - this class is defined in ArrayOpsExp
@@ -47,6 +48,26 @@ trait ArrayLoopsExp extends ArrayOpsExp with LoopsExp { //A.Filippov - add Array
     val x = fresh[Int]
     val y = reifyEffects(f(x))
     simpleLoop(shape, x, ArrayElem(y))
+  }
+
+  def arrayIf[T:Manifest](shape: Rep[Int])(f: Rep[Int] => (Rep[Boolean],Rep[T])): Rep[Array[T]] = {
+    val x = fresh[Int]
+    var c: Rep[Boolean] = null
+    val y = reifyEffects { val p = f(x); c = p._1; p._2 }
+    simpleLoop(shape, x, ArrayIfElem(c,y)) // TODO: simplify for const true/false
+  }
+
+  def flatten[T:Manifest](shape: Rep[Int])(f: Rep[Int] => Rep[Array[T]]): Rep[Array[T]] = {
+    val x = fresh[Int]
+    val y = reifyEffects(f(x))
+    simpleLoop(shape, x, FlattenElem(y))
+  }
+
+  def flattenIf[T:Manifest](shape: Rep[Int])(f: Rep[Int] => (Rep[Boolean],Rep[Array[T]])): Rep[Array[T]] = {
+    val x = fresh[Int]
+    var c: Rep[Boolean] = null
+    val y = reifyEffects { val p = f(x); c = p._1; p._2 }
+    simpleLoop(shape, x, FlattenIfElem(c,y)) // TODO: simplify for const true/false
   }
 
   def sum(shape: Rep[Int])(f: Rep[Int] => Rep[Double]): Rep[Double] = {
@@ -59,14 +80,6 @@ trait ArrayLoopsExp extends ArrayOpsExp with LoopsExp { //A.Filippov - add Array
     val x = fresh[Int]
     val y = reifyEffects(f(x))
     simpleLoop(shape, x, ReduceIntElem(y))
-  }
-
-  def arrayIf[T:Manifest](shape: Rep[Int])(f: Rep[Int] => (Rep[Boolean],Rep[T])): Rep[Array[T]] = {
-    val x = fresh[Int]
-    //val (c,y) = f(x)
-    var c: Rep[Boolean] = null
-    val y = reifyEffects { val p = f(x); c = p._1; p._2 }
-    simpleLoop(shape, x, ArrayIfElem(c,y)) // TODO: simplify for const true/false
   }
 
   def sumIf(shape: Rep[Int])(f: Rep[Int] => (Rep[Boolean],Rep[Double])): Rep[Double] = {
@@ -83,12 +96,6 @@ trait ArrayLoopsExp extends ArrayOpsExp with LoopsExp { //A.Filippov - add Array
     var c: Rep[Boolean] = null
     val y = reifyEffects { val p = f(x); c = p._1; p._2 }
     simpleLoop(shape, x, ReduceIfIntElem(c,y)) // TODO: simplify for const true/false
-  }
-
-  def flatten[T:Manifest](shape: Rep[Int])(f: Rep[Int] => Rep[Array[T]]): Rep[Array[T]] = {
-    val x = fresh[Int]
-    val y = reifyEffects(f(x))
-    simpleLoop(shape, x, FlattenElem(y))
   }
 
 
@@ -126,6 +133,7 @@ trait ArrayLoopsExp extends ArrayOpsExp with LoopsExp { //A.Filippov - add Array
     case ReduceIfElem(c,y) => ReduceIfElem(f(c),f(y))
     case ReduceIfIntElem(c,y) => ReduceIfIntElem(f(c),f(y))
     case FlattenElem(y) => FlattenElem(f(y))
+    case FlattenIfElem(c,y) => FlattenIfElem(f(c),f(y))
     case _ => super.mirrorFatDef(e,f)
   }).asInstanceOf[Def[A]]
 
@@ -197,6 +205,9 @@ trait ScalaGenArrayLoopsFat extends ScalaGenArrayLoops with ScalaGenLoopsFat {
             val mR = getBlockResult(y).tp
             assert(mR.runtimeClass.isArray)
             stream.println("var " + quote(l) + "_buf = scala.collection.mutable.ArrayBuilder.make[" + remap(mR.typeArguments(0)) + "]")
+          case FlattenIfElem(c,y) =>
+            val mR = getBlockResult(y).tp
+            stream.println("var " + quote(l) + "_buf = scala.collection.mutable.ArrayBuilder.make[" + remap(mR.typeArguments(0)) + "]")
         }
       }
       val ii = x // was: x(i)
@@ -223,6 +234,8 @@ trait ScalaGenArrayLoopsFat extends ScalaGenArrayLoops with ScalaGenLoopsFat {
             stream.println("if ("+quote(/*getBlockResult*/(c))+") " + quote(l) + " += " + quote(getBlockResult(y)))
           case FlattenElem(y) =>
             stream.println(quote(l) + "_buf ++= " + quote(getBlockResult(y)))
+          case FlattenIfElem(c,y) =>
+            stream.println("if ("+quote(/*getBlockResult*/(c))+") " + quote(l) + "_buf ++= " + quote(getBlockResult(y)))
         }
       }
 //      stream.println(quote(ii)+" += 1")
@@ -233,7 +246,9 @@ trait ScalaGenArrayLoopsFat extends ScalaGenArrayLoops with ScalaGenLoopsFat {
             stream.println("val " + quote(l) + " = " + quote(l) + "_buf.result")
           case FlattenElem(_) =>
             stream.println("val " + quote(l) + " = " + quote(l) + "_buf.result")
-          case _ => 
+          case FlattenIfElem(_, _) =>
+            stream.println("val " + quote(l) + " = " + quote(l) + "_buf.result")
+          case _ =>
         }
       }      
     }

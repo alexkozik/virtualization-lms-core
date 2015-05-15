@@ -40,9 +40,11 @@ trait ArrayMutationExp extends ArrayMutation with ArrayLoopsExp {
   
   override def aliasSyms(e: Any): List[Sym[Any]] = e match {
     case SimpleLoop(s,i, ArrayElem(y)) => Nil
+    case SimpleLoop(s,i, FlattenElem(y)) => Nil
     case SimpleLoop(s,i, ReduceElem(y)) => syms(y) // could also return zero value
     case SimpleLoop(s,i, ReduceIntElem(y)) => syms(y) // could also return zero value
     case SimpleLoop(s,i, ArrayIfElem(c,y)) => Nil
+    case SimpleLoop(s,i, FlattenIfElem(c,y)) => Nil
     case SimpleLoop(s,i, ReduceIfElem(c,y)) => syms(y) // could also return zero value
     case SimpleLoop(s,i, ReduceIfIntElem(c,y)) => syms(y) // could also return zero value
     case ArrayIndex(a,i) => Nil
@@ -53,9 +55,11 @@ trait ArrayMutationExp extends ArrayMutation with ArrayLoopsExp {
 
   override def containSyms(e: Any): List[Sym[Any]] = e match {
     case SimpleLoop(s,i, ArrayElem(y)) => syms(y)
+    case SimpleLoop(s,i, FlattenElem(y)) => syms(y)
     case SimpleLoop(s,i, ReduceElem(y)) => Nil
     case SimpleLoop(s,i, ReduceIntElem(y)) => Nil
     case SimpleLoop(s,i, ArrayIfElem(c,y)) => syms(y)
+    case SimpleLoop(s,i, FlattenIfElem(c,y)) => syms(y)
     case SimpleLoop(s,i, ReduceIfElem(c,y)) => Nil
     case SimpleLoop(s,i, ReduceIfIntElem(c,y)) => Nil
     case ArrayIndex(a,i) => Nil
@@ -66,9 +70,11 @@ trait ArrayMutationExp extends ArrayMutation with ArrayLoopsExp {
 
   override def extractSyms(e: Any): List[Sym[Any]] = e match {
     case SimpleLoop(s,i, ArrayElem(y)) => Nil
+    case SimpleLoop(s,i, FlattenElem(y)) => Nil
     case SimpleLoop(s,i, ReduceElem(y)) => Nil
     case SimpleLoop(s,i, ReduceIntElem(y)) => Nil
     case SimpleLoop(s,i, ArrayIfElem(c,y)) => Nil
+    case SimpleLoop(s,i, FlattenIfElem(c,y)) => Nil
     case SimpleLoop(s,i, ReduceIfElem(c,y)) => Nil
     case SimpleLoop(s,i, ReduceIfIntElem(c,y)) => Nil
     case ArrayIndex(a,i) => syms(a)
@@ -79,9 +85,11 @@ trait ArrayMutationExp extends ArrayMutation with ArrayLoopsExp {
 
   override def copySyms(e: Any): List[Sym[Any]] = e match {
     case SimpleLoop(s,i, ArrayElem(y)) => Nil
+    case SimpleLoop(s,i, FlattenElem(y)) => Nil
     case SimpleLoop(s,i, ReduceElem(y)) => Nil
     case SimpleLoop(s,i, ReduceIntElem(y)) => Nil
     case SimpleLoop(s,i, ArrayIfElem(c,y)) => Nil
+    case SimpleLoop(s,i, FlattenIfElem(c,y)) => Nil
     case SimpleLoop(s,i, ReduceIfElem(c,y)) => Nil
     case SimpleLoop(s,i, ReduceIfIntElem(c,y)) => Nil
     case ArrayIndex(a,i) => Nil

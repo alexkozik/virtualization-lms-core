@@ -2,6 +2,8 @@ package scala.virtualization.lms
 package epfl
 package test7
 
+import org.scalatest.{Matchers, FunSuite}
+
 import common._
 import test1._
 
@@ -123,11 +125,11 @@ trait LiveProg extends Arith with Arrays with Print {
 }
 
 
-class TestLiveness extends FileDiffSuite {
+class TestLiveness extends FunSuite with FileDiffSuite with Matchers {
   
   val prefix = home + "test-out/epfl/test7-"
-  
-  def testLiveness1 = {
+
+  test("testLiveness1") {
     withOutFile(prefix+"liveness1") {
       new LiveProg with ArithExp with ArraysExp with PrintExp { self =>
         val codegen = new ScalaGenArith with ScalaGenArrays with ScalaGenPrint with Liveness { val IR: self.type = self }
@@ -137,7 +139,7 @@ class TestLiveness extends FileDiffSuite {
     assertFileEqualsCheck(prefix+"liveness1")
   }
 
-  def testLiveness2 = {
+  test("testLiveness2") {
     withOutFile(prefix+"liveness2") {
       new LiveProg with ArithExp with ArraysExp with PrintExp { self =>
         val codegen = new ScalaGenArith with ScalaGenArraysLiveOpt with ScalaGenPrint with Liveness { val IR: self.type = self }

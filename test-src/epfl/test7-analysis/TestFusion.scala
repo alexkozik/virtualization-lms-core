@@ -2,6 +2,8 @@ package scala.virtualization.lms
 package epfl
 package test7
 
+import org.scalatest.{FunSuite, Spec}
+
 import common._
 import test1._
 
@@ -27,22 +29,42 @@ trait ScalaGenFatArrayLoopsFusionOpt extends ScalaGenArrayLoopsFat with ScalaGen
 
   override def unapplySimpleCollect(e: Def[Any]) = e match {
     case ArrayElem(Block(a)) => Some(a) //TODO: block??
+    case FlattenElem(Block(a)) => Some(a) //TODO: block??
     case _ => super.unapplySimpleCollect(e)
   }
 
   override def unapplySimpleCollectIf(e: Def[Any]) = e match {
     case ArrayIfElem(c,Block(a)) => Some((a,List(c))) //TODO: block?
+    case FlattenIfElem(c,Block(a)) => Some((a,List(c))) //TODO: block?
     case _ => super.unapplySimpleCollectIf(e)
   }
 
   override def applyAddCondition(e: Def[Any], c: List[Exp[Boolean]]) = e match { //TODO: should c be list or not?
     case ArrayElem(a) if c.length == 1 => ArrayIfElem(c(0),a)
+    case FlattenElem(a) if c.length == 1 => FlattenIfElem(c(0),a)
     case ReduceElem(a) if c.length == 1 => ReduceIfElem(c(0),a)
     case ReduceIntElem(a) if c.length == 1 => ReduceIfIntElem(c(0),a)
     case _ => super.applyAddCondition(e,c)
   }
 
+  def hasFlatten(ds: List[Def[Any]]) =
+    ds.exists {
+      case FlattenElem(_) => true
+      case FlattenIfElem(_,_) => true
+      case _ => false
+    }
 
+  override def canFuseLoops(a: Stm, b: Stm) = {
+    (a.rhs, b.rhs) match {
+      case (SimpleFatLoop(s1, _, as), SimpleFatLoop(s2, _, bs)) =>
+        val cannot = hasFlatten(as) || hasFlatten(bs)
+        if (cannot) false
+        else
+          super.canFuseLoops(a, b)
+      case _ =>
+        super.canFuseLoops(a, b)
+    }
+  }
 
 }
 
@@ -97,6 +119,26 @@ trait FusionProg2 extends Arith with ArrayLoops with Print with OrderingOps {
   
 }
 
+trait FusionProg3 extends Arith with ArrayLoops with Print with OrderingOps with ArrayOps{
+
+  implicit def bla(x: Rep[Int]): Rep[Double] = x.asInstanceOf[Rep[Double]]
+
+  def test(x: Rep[Unit]) = {
+
+    def filter[T:Manifest](x: Rep[Array[T]])(p: Rep[T] => Rep[Boolean]) =
+      arrayIf(x.length) { i => (p(x.at(i)), x.at(i)) }
+
+    val nested: Rep[Array[Array[Int]]] = array(100) { i => array(i) { j => j } }
+
+    val flat = flatten(nested.length){i => nested(i)}
+
+    val res = sum(flat.length) { i => flat.at(i) }
+
+    print(res)
+  }
+
+}
+
 
 
 /* 
@@ -137,11 +179,11 @@ trait FusionProg2 extends Arith with ArrayLoops with Print with OrderingOps {
 
 
 
-class TestFusion extends FileDiffSuite {
+class TestFusion extends FunSuite with FileDiffSuite {
   
   val prefix = home + "test-out/epfl/test7-"
-  
-  def testFusion1 = {
+
+  test("testFusion1") {
     withOutFile(prefix+"fusion1") {
       new FusionProg with ArithExp with ArrayLoopsExp with PrintExp { self =>
         val codegen = new ScalaGenArrayLoops with ScalaGenArith with ScalaGenPrint { val IR: self.type = self }
@@ -162,22 +204,35 @@ class TestFusion extends FileDiffSuite {
     }
     assertFileEqualsCheck(prefix+"fusion2")
   }
- 
-  def testFusion3 = {
-    withOutFile(prefix+"fusion3") {
+
+  test("testFusion3") {
+    withOutFile(prefix+"fusion3.scala") {
       new FusionProg2 with ArithExp with ArrayLoopsFatExp with IfThenElseFatExp with PrintExp with IfThenElseExp with OrderingOpsExp  { self =>
         override val verbosity = 1
-        val codegen = new ScalaGenFatArrayLoopsFusionOpt with ScalaGenArith with ScalaGenPrint 
+        val codegen = new ScalaGenFatArrayLoopsFusionOpt with ScalaGenArith with ScalaGenPrint
+          with ScalaGenIfThenElse with ScalaGenOrderingOps { val IR: self.type = self;
+          override def shouldApplyFusion(currentScope: List[Stm])(result: List[Exp[Any]]): Boolean = false }
+        codegen.emitSource(test, "Test", new PrintWriter(System.out))
+      }
+    }
+    assertFileEqualsCheck(prefix+"fusion3.scala")
+  }
+
+  test("testFusion4") {
+    withOutFile(prefix+"fusion4.scala") {
+      new FusionProg3 with ArithExp with ArrayLoopsFatExp with ArrayOpsExpOpt with IfThenElseFatExp with PrintExp with IfThenElseExp with OrderingOpsExp  { self =>
+        override val verbosity = 1
+        val codegen = new ScalaGenFatArrayLoopsFusionOpt with ScalaGenArith with ScalaGenPrint with ScalaGenArrayOps
           with ScalaGenIfThenElse with ScalaGenOrderingOps { val IR: self.type = self;
             override def shouldApplyFusion(currentScope: List[Stm])(result: List[Exp[Any]]): Boolean = false }
         codegen.emitSource(test, "Test", new PrintWriter(System.out))
       }
     }
-    assertFileEqualsCheck(prefix+"fusion3")
+    assertFileEqualsCheck(prefix+"fusion4.scala")
   }
 
-  def testFusion4 = {
-    withOutFile(prefix+"fusion4") {
+  def testFusion5 = {
+    withOutFile(prefix+"fusion5") {
       new FusionProg2 with ArithExp with ArrayLoopsFatExp with IfThenElseFatExp with PrintExp with IfThenElseExp with OrderingOpsExp  { self =>
         override val verbosity = 1
         val codegen = new ScalaGenFatArrayLoopsFusionOpt with ScalaGenArith with ScalaGenPrint 
@@ -186,7 +241,7 @@ class TestFusion extends FileDiffSuite {
         codegen.emitSource(test, "Test", new PrintWriter(System.out))
       }
     }
-    assertFileEqualsCheck(prefix+"fusion4")
+    assertFileEqualsCheck(prefix+"fusion5")
   }
  
 }

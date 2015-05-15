@@ -241,6 +241,12 @@ trait LoopFusionCore extends internal.FatScheduling with CodeMotion with Simplif
     def unapply(a: Def[Any]): Option[(Exp[Any],List[Exp[Boolean]])] = unapplySimpleCollectIf(a)
   }
 
+  def canFuseLoops(a: Stm, b: Stm): Boolean = (a.rhs,b.rhs) match {
+    case (SimpleFatLoop(s1,_,_), SimpleFatLoop(s2,_,_)) if s1 == s2 => true  // same size (horizontal or pipeline)
+    case (SimpleFatLoop(Def(SimpleDomain(a1)),_,_), SimpleFatLoop(_,_,_)) if b.lhs contains a1 => true // pipeline
+    case (SimpleFatLoop(_,_,_), SimpleFatLoop(Def(SimpleDomain(b1)),_,_)) if a.lhs contains b1 => true
+    case _ => false
+  }
 
   /*
     apply fusion to loops at the top level of scope 'currentScope', which has outputs 'result'.
@@ -336,29 +342,37 @@ trait LoopFusionCore extends internal.FatScheduling with CodeMotion with Simplif
 
         printlog("wtableneg: " + WtableNeg) // will add more later, need to maintain closure
 
-
         // other preconditions for fusion: loops must have same shape, or one must loop over the other's result
 
         def canFuseIndirect(a: Stm, b: Stm): Boolean = 
           !WtableNeg.exists(p => (a.lhs contains p._1) && (b.lhs contains p._2) || (b.lhs contains p._1) && (a.lhs contains p._2))
 
-        def canFuseDirect(a: Stm, b: Stm): Boolean = (a.rhs,b.rhs) match {
-          case (SimpleFatLoop(s1,_,_), SimpleFatLoop(s2,_,_)) if s1 == s2 => true  // same size (horizontal or pipeline)
-          case (SimpleFatLoop(Def(SimpleDomain(a1)),_,_), SimpleFatLoop(_,_,_)) if b.lhs contains a1 => true // pipeline
-          case (SimpleFatLoop(_,_,_), SimpleFatLoop(Def(SimpleDomain(b1)),_,_)) if a.lhs contains b1 => true
-          case _ => false
-        }
+        def canFuseDirect(a: Stm, b: Stm): Boolean = canFuseLoops(a, b)
 
         def canFuse(a: Stm, b: Stm): Boolean = canFuseDirect(a,b) && canFuseIndirect(a,b)        
 
         // shape dependency helpers
 
-        def isShapeDep(s: Exp[Int], a: Stm) = s match { case Def(SimpleDomain(a1)) => a.lhs contains a1 case _ => false }
-        def getShapeCond(s: Exp[Int], a: Stm) = s match { case Def(SimpleDomain(a1)) => WgetLoopRes(a)(a.lhs indexOf a1) match { case SimpleCollectIf(a,c) => c } }
-
-        def extendLoopWithCondition(e: Stm, shape: Exp[Int], targetVar: Sym[Int], c: List[Exp[Boolean]]): List[Exp[Any]] = e.rhs match { 
-          case SimpleFatLoop(s,x,rhs) => (e.lhs zip rhs).map { case (l,r) => findOrCreateDefinitionExp(SimpleLoop(shape,targetVar,applyAddCondition(r,c)), l.pos)(mtype(l.tp)) }
+        def isShapeDep(s: Exp[Int], a: Stm) = s match {
+          case Def(SimpleDomain(a1)) => a.lhs contains a1
+          case _ => false
         }
+        def getShapeCond(s: Exp[Int], a: Stm): List[Exp[Boolean]] = s match {
+          case Def(SimpleDomain(a1)) =>
+            WgetLoopRes(a)(a.lhs indexOf a1) match {
+              case SimpleCollectIf(a,c) => c
+            }
+        }
+
+        def extendLoopWithCondition(e: Stm, shape: Exp[Int], targetVar: Sym[Int], c: List[Exp[Boolean]]): List[Exp[Any]] =
+          e.rhs match {
+            case SimpleFatLoop(s, x, rhs) =>
+              (e.lhs zip rhs).map {
+                case (l, r) =>
+                  val newRes = if (c.nonEmpty) applyAddCondition(r, c) else r
+                  findOrCreateDefinitionExp(SimpleLoop(shape, targetVar, newRes), l.pos)(mtype(l.tp))
+              }
+          }
 
         // partitioning: build maximal sets of loops to be fused
         // already fuse loops headers (shape, index variables)
