@@ -6,55 +6,55 @@ nVars=2000
 import scala.lms.epfl.test14.Schema
 class staged$0 extends ((Unit)=>(Unit)) {
 def apply(x0:Unit): Unit = {
-val x2550 = println("expertise2(\"abstract\"):")
-val x1147 = Schema.org.departments.flatMap { x991 => 
-val x1140 = Schema.org.employees.flatMap { x1083 => 
-val x993 = x991.dpt
-val x1084 = x1083.dpt
-val x1085 = x993 == x1084
-val x1133 = Schema.org.tasks.flatMap { x1120 => 
-val x1088 = x1083.emp
-val x1121 = x1120.emp
-val x1122 = x1088 == x1121
-val x1125 = x1120.tsk
-val x1128 = x1125 == "abstract"
-val x1130 = x1122 && x1128
-val x1132 = if (x1130) {
-val x661 = new Schema.Record { val ignore = () }
-val x688 = List(x661)
-x688
+val x2673 = println("expertise2(\"abstract\"):")
+val x1270 = Schema.org.departments.flatMap { x1107 => 
+val x1262 = Schema.org.employees.flatMap { x1202 => 
+val x1109 = x1107.dpt
+val x1203 = x1202.dpt
+val x1204 = x1109 == x1203
+val x1254 = Schema.org.tasks.flatMap { x1240 => 
+val x1207 = x1202.emp
+val x1241 = x1240.emp
+val x1242 = x1207 == x1241
+val x1245 = x1240.tsk
+val x1248 = x1245 == "abstract"
+val x1251 = x1242 && x1248
+val x1253 = if (x1251) {
+val x767 = new Schema.Record { val ignore = () }
+val x794 = List(x767)
+x794
 } else {
-val x19 = List()
-x19
+val x34 = List()
+x34
 }
-x1132
+x1253
 }
-val x1134 = x1133.isEmpty
-val x1137 = x1085 && x1134
-val x1139 = if (x1137) {
-val x661 = new Schema.Record { val ignore = () }
-val x688 = List(x661)
-x688
+val x1255 = x1254.isEmpty
+val x1259 = x1204 && x1255
+val x1261 = if (x1259) {
+val x767 = new Schema.Record { val ignore = () }
+val x794 = List(x767)
+x794
 } else {
-val x19 = List()
-x19
+val x34 = List()
+x34
 }
-x1139
+x1261
 }
-val x1141 = x1140.isEmpty
-val x1146 = if (x1141) {
-val x993 = x991.dpt
-val x1144 = new Schema.Record { val dpt = x993 }
-val x1145 = List(x1144)
-x1145
+val x1263 = x1262.isEmpty
+val x1269 = if (x1263) {
+val x1109 = x1107.dpt
+val x1267 = new Schema.Record { val dpt = x1109 }
+val x1268 = List(x1267)
+x1268
 } else {
-val x19 = List()
-x19
+val x34 = List()
+x34
 }
-x1146
+x1269
 }
-val x2551 = println(x1147)
-x2551
+val x2674 = println(x1270)
+x2674
 }
 }
 /*****************************************

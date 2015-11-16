@@ -50,9 +50,7 @@ trait ArrayOps extends Variables {
 }
 
 trait ArrayOpsExp extends ArrayOps with EffectExp with VariablesExp {
-  case class ArrayNew[T:Manifest](n: Exp[Int]) extends Def[Array[T]] {
-    val m = manifest[T]
-  }
+  case class ArrayNew[T](n: Exp[Int], m: Manifest[T]) extends Def[Array[T]]
   case class ArrayFromSeq[T:Manifest](xs: Seq[Exp[T]]) extends Def[Array[T]] {
     val m = manifest[T]
   }
@@ -74,7 +72,7 @@ trait ArrayOpsExp extends ArrayOps with EffectExp with VariablesExp {
   case class ArrayToSeq[A:Manifest](x: Exp[Array[A]]) extends Def[Seq[A]]
   case class ArraySlice[A:Manifest](a: Exp[Array[A]], s:Exp[Int], e:Exp[Int]) extends Def[Array[A]]
 
-  def array_obj_new[T:Manifest](n: Exp[Int]) = reflectMutable(ArrayNew(n))
+  def array_obj_new[T:Manifest](n: Exp[Int]) = reflectMutable(ArrayNew(n, manifest[T]))
   def array_obj_fromseq[T:Manifest](xs: Seq[Exp[T]]) = /*reflectMutable(*/ ArrayFromSeq(xs) /*)*/
   def array_apply[T:Manifest](x: Exp[Array[T]], n: Exp[Int])(implicit pos: SourceContext): Exp[T] = ArrayApply(x, n)
   def array_update[T:Manifest](x: Exp[Array[T]], n: Exp[Int], y: Exp[T])(implicit pos: SourceContext) = reflectWrite(x)(ArrayUpdate(x,n,y))
@@ -104,7 +102,7 @@ trait ArrayOpsExp extends ArrayOps with EffectExp with VariablesExp {
     case ArrayLength(x) => array_length(f(x))
     case e@ArraySort(x) => array_sort(f(x))(e.m,pos)
     case e@ArrayCopy(a,ap,d,dp,l) => toAtom(ArrayCopy(f(a),f(ap),f(d),f(dp),f(l))(e.m))(mtype(manifest[A]),pos)
-    case Reflect(e@ArrayNew(n), u, es) => reflectMirrored(Reflect(ArrayNew(f(n))(e.m), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)    
+    case Reflect(ArrayNew(n, m), u, es) => reflectMirrored(Reflect(ArrayNew(f(n), m), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
     case Reflect(e@ArrayLength(x), u, es) => reflectMirrored(Reflect(ArrayLength(f(x))(e.m), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)    
     case Reflect(ArrayApply(l,r), u, es) => reflectMirrored(Reflect(ArrayApply(f(l),f(r))(mtype(manifest[A])), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
     case Reflect(e@ArraySort(x), u, es) => reflectMirrored(Reflect(ArraySort(f(x))(e.m), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
@@ -139,11 +137,11 @@ trait ArrayOpsExpOpt extends ArrayOpsExp {
    * @author  Alen Stojanov (astojanov@inf.ethz.ch)
    */
   override def array_length[T:Manifest](a: Exp[Array[T]])(implicit pos: SourceContext) : Rep[Int] = a match {
-    case Def(ArrayNew(n: Exp[Int])) => n
+    case Def(ArrayNew(n, _)) => n
     case Def(ArrayFromSeq(xs)) => Const(xs.size)
     case Def(ArraySort(x)) => array_length(x)
     case Def(ArrayMap(x, _, _)) => array_length(x)
-    case Def(Reflect(ArrayNew(n: Exp[Int]), _, _)) => n
+    case Def(Reflect(ArrayNew(n, _), _, _)) => n
     case Def(Reflect(ArrayFromSeq(xs), _, _)) => Const(xs.size)
     case Def(Reflect(ArraySort(x), _, _)) => array_length(x)
     case Def(Reflect(ArrayMap(x, _, _), _, _)) => array_length(x)
@@ -158,7 +156,7 @@ trait ArrayOpsExpOpt extends ArrayOpsExp {
       //TODO: could use calculateDependencies?
 
       val rhs = context.reverse.collectFirst {
-        //case w @ Def(Reflect(ArrayNew(sz: Exp[T]), _, _)) if w == x => Some(Const(0)) // FIXME: bounds check!
+        //case w @ Def(Reflect(ArrayNew(sz, _), _, _)) if w == x => Some(Const(0)) // FIXME: bounds check!
         case Def(Reflect(ArrayUpdate(`x`, `n`, rhs: Exp[T]), _, _)) => Some(rhs)
         case Def(Reflect(_, u, _)) if mayWrite(u, List(vs)) => None // not a simple assignment
       }
@@ -176,7 +174,7 @@ trait ArrayOpsExpOpt extends ArrayOpsExp {
       //TODO: could use calculateDependencies?
 
       val rhs = context.reverse.collectFirst {
-        //case w @ Def(Reflect(ArrayNew(sz: Exp[T]), _, _)) if w == x => Some(Const(())) // FIXME: bounds check!
+        //case w @ Def(Reflect(ArrayNew(sz, _), _, _)) if w == x => Some(Const(())) // FIXME: bounds check!
         case Def(Reflect(ArrayUpdate(`x`, `n`, `y`), _, _)) => Some(Const(()))
         case Def(Reflect(_, u, _)) if mayWrite(u, List(vs)) => None // not a simple assignment
       }
@@ -204,7 +202,7 @@ trait ScalaGenArrayOps extends BaseGenArrayOps with ScalaGenBase {
   val ARRAY_LITERAL_MAX_SIZE = 1000
 
   override def emitNode(sym: Sym[Any], rhs: Def[Any]) = rhs match {
-    case a@ArrayNew(n) => emitValDef(sym, src"new Array[${remap(a.m)}]($n)")
+    case ArrayNew(n, m) => emitValDef(sym, src"new Array[${remap(m)}]($n)")
     case e@ArrayFromSeq(xs) => {
       emitData(sym, xs)
       emitValDef(sym,

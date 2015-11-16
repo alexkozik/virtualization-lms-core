@@ -50,7 +50,7 @@ trait ListOps extends Variables {
 }
 
 trait ListOpsExp extends ListOps with EffectExp with VariablesExp {
-  case class ListNew[A:Manifest](xs: Seq[Rep[A]]) extends Def[List[A]]
+  case class ListNew[A](xs: Seq[Rep[A]], m: Manifest[A]) extends Def[List[A]]
   case class ListFromSeq[A:Manifest](xs: Rep[Seq[A]]) extends Def[List[A]]
   case class ListMap[A:Manifest,B:Manifest](l: Exp[List[A]], x: Sym[A], block: Block[B]) extends Def[List[B]]
   case class ListFlatMap[A:Manifest, B:Manifest](l: Exp[List[A]], x: Sym[A], block: Block[List[B]]) extends Def[List[B]]
@@ -67,7 +67,7 @@ trait ListOpsExp extends ListOps with EffectExp with VariablesExp {
   case class ListTail[A:Manifest](xs: Rep[List[A]]) extends Def[List[A]]
   case class ListIsEmpty[A:Manifest](xs: Rep[List[A]]) extends Def[Boolean]
   
-  def list_new[A:Manifest](xs: Seq[Rep[A]])(implicit pos: SourceContext) = ListNew(xs)
+  def list_new[A:Manifest](xs: Seq[Rep[A]])(implicit pos: SourceContext) = ListNew(xs, manifest[A])
   def list_fromseq[A:Manifest](xs: Rep[Seq[A]])(implicit pos: SourceContext) = ListFromSeq(xs)
   def list_map[A:Manifest,B:Manifest](l: Exp[List[A]], f: Exp[A] => Exp[B])(implicit pos: SourceContext) = {
     val a = fresh[A]
@@ -102,7 +102,7 @@ trait ListOpsExp extends ListOps with EffectExp with VariablesExp {
   
   override def mirror[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Exp[A] = {
     (e match {
-      case ListNew(xs) => list_new(f(xs))
+      case ListNew(xs, m) => list_new(f(xs))(m, pos)
       case _ => super.mirror(e,f)
     }).asInstanceOf[Exp[A]] // why??
   }
@@ -134,9 +134,9 @@ trait ListOpsExp extends ListOps with EffectExp with VariablesExp {
 
 trait ListOpsExpOpt extends ListOpsExp {
   override def list_concat[A : Manifest](xs1: Exp[List[A]], xs2: Exp[List[A]])(implicit pos: SourceContext): Exp[List[A]] = (xs1, xs2) match {
-    case (Def(ListNew(xs1)), Def(ListNew(xs2))) => ListNew(xs1 ++ xs2)
-    case (Def(ListNew(Seq())), xs2) => xs2
-    case (xs1, Def(ListNew(Seq()))) => xs1
+    case (Def(ListNew(xs1, _)), Def(ListNew(xs2, _))) => list_new(xs1 ++ xs2)
+    case (Def(ListNew(Seq(), _)), xs2) => xs2
+    case (xs1, Def(ListNew(Seq(), _))) => xs1
     case _ => super.list_concat(xs1, xs2)
   }
 }
@@ -152,7 +152,7 @@ trait ScalaGenListOps extends BaseGenListOps with ScalaGenEffect {
   import IR._
 
   override def emitNode(sym: Sym[Any], rhs: Def[Any]) = rhs match {
-    case ListNew(xs) => emitValDef(sym, src"List(${(xs map {quote}).mkString(",")})")
+    case ListNew(xs, _) => emitValDef(sym, src"List(${xs.map(quote).mkString(",")})")
     case ListConcat(xs,ys) => emitValDef(sym, src"$xs ::: $ys")
     case ListCons(x, xs) => emitValDef(sym, src"$x :: $xs")
     case ListHead(xs) => emitValDef(sym, src"$xs.head")

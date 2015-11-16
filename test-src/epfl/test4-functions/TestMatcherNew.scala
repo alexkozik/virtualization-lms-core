@@ -781,7 +781,7 @@ class TestMatcherNew extends FileDiffSuite {
         //import IR._   
         import java.io.PrintWriter
         override def emitNode(sym: Sym[Any], rhs: Def[Any]) = rhs match {
-          case Result(xs) => emitValDef(sym, "(" + (xs map {quote}).mkString(",") + ") // DUMMY")
+          case Result(xs) => emitValDef(sym, "(" + (xs map quote).mkString(",") + ") // DUMMY")
           case ResultA(x,xs) => emitValDef(sym, quote(x) + " // " + (xs map quote).mkString(","))
           case Bare(x,f) => emitValDef(sym, f(quote(x)))
           case _ => 

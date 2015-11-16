@@ -6,55 +6,55 @@ nVars=2000
 import scala.lms.epfl.test14.Schema
 class staged$0 extends ((Unit)=>(Unit)) {
 def apply(x0:Unit): Unit = {
-val x2550 = println("expertise(\"abstract\"):")
-val x800 = Schema.org.departments.flatMap { x732 => 
-val x792 = Schema.org.employees.flatMap { x763 => 
-val x734 = x732.dpt
-val x764 = x763.dpt
-val x765 = x734 == x764
-val x785 = Schema.org.tasks.flatMap { x776 => 
-val x767 = x763.emp
-val x777 = x776.emp
-val x778 = x767 == x777
-val x779 = x776.tsk
-val x780 = x779 == "abstract"
-val x781 = x778 && x780
-val x784 = if (x781) {
-val x661 = new Schema.Record { val ignore = () }
-val x688 = List(x661)
-x688
+val x2673 = println("expertise(\"abstract\"):")
+val x906 = Schema.org.departments.flatMap { x838 => 
+val x898 = Schema.org.employees.flatMap { x869 => 
+val x840 = x838.dpt
+val x870 = x869.dpt
+val x871 = x840 == x870
+val x891 = Schema.org.tasks.flatMap { x882 => 
+val x873 = x869.emp
+val x883 = x882.emp
+val x884 = x873 == x883
+val x885 = x882.tsk
+val x886 = x885 == "abstract"
+val x887 = x884 && x886
+val x890 = if (x887) {
+val x767 = new Schema.Record { val ignore = () }
+val x794 = List(x767)
+x794
 } else {
-val x19 = List()
-x19
+val x34 = List()
+x34
 }
-x784
+x890
 }
-val x786 = x785.isEmpty
-val x788 = x765 && x786
-val x791 = if (x788) {
-val x661 = new Schema.Record { val ignore = () }
-val x688 = List(x661)
-x688
+val x892 = x891.isEmpty
+val x894 = x871 && x892
+val x897 = if (x894) {
+val x767 = new Schema.Record { val ignore = () }
+val x794 = List(x767)
+x794
 } else {
-val x19 = List()
-x19
+val x34 = List()
+x34
 }
-x791
+x897
 }
-val x793 = x792.isEmpty
-val x799 = if (x793) {
-val x734 = x732.dpt
-val x797 = new Schema.Record { val dpt = x734 }
-val x798 = List(x797)
-x798
+val x899 = x898.isEmpty
+val x905 = if (x899) {
+val x840 = x838.dpt
+val x903 = new Schema.Record { val dpt = x840 }
+val x904 = List(x903)
+x904
 } else {
-val x19 = List()
-x19
+val x34 = List()
+x34
 }
-x799
+x905
 }
-val x2551 = println(x800)
-x2551
+val x2674 = println(x906)
+x2674
 }
 }
 /*****************************************

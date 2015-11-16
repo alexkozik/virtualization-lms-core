@@ -45,16 +45,14 @@ trait ArrayBufferOps extends Base {
 }
 
 trait ArrayBufferOpsExp extends ArrayBufferOps with EffectExp {
-  case class ArrayBufferNew[A:Manifest](xs: Seq[Exp[A]]) extends Def[ArrayBuffer[A]]  {
-    val mA = manifest[A]
-  }
+  case class ArrayBufferNew[A](xs: Seq[Exp[A]], mA: Manifest[A]) extends Def[ArrayBuffer[A]]
   case class ArrayBufferMkString[A:Manifest](l: Exp[ArrayBuffer[A]], sep: Exp[String]) extends Def[String]
   case class ArrayBufferAppend[A:Manifest](l: Exp[ArrayBuffer[A]], e: Exp[A]) extends Def[Unit]
   case class ArrayBufferClear[A:Manifest](l: Exp[ArrayBuffer[A]]) extends Def[Unit]
   case class ArrayBufferToArray[A:Manifest](x: Exp[ArrayBuffer[A]]) extends Def[Array[A]]
   case class ArrayBufferToSeq[A:Manifest](x: Exp[ArrayBuffer[A]]) extends Def[Seq[A]]
 
-  def arraybuffer_new[A:Manifest](xs: Seq[Exp[A]])(implicit pos: SourceContext) = reflectMutable(ArrayBufferNew(xs))
+  def arraybuffer_new[A:Manifest](xs: Seq[Exp[A]])(implicit pos: SourceContext) = reflectMutable(ArrayBufferNew(xs, manifest[A]))
   def arraybuffer_mkstring[A:Manifest](l: Exp[ArrayBuffer[A]], sep: Exp[String])(implicit pos: SourceContext) = ArrayBufferMkString(l, sep)
   def arraybuffer_append[A:Manifest](l: Exp[ArrayBuffer[A]], e: Exp[A])(implicit pos: SourceContext) = reflectWrite(l)(ArrayBufferAppend(l, e))
   def arraybuffer_clear[A:Manifest](l: Exp[ArrayBuffer[A]]) = reflectWrite(l)(ArrayBufferClear(l))
@@ -89,7 +87,7 @@ trait ScalaGenArrayBufferOps extends BaseGenArrayBufferOps with ScalaGenEffect {
   import IR._
 
   override def emitNode(sym: Sym[Any], rhs: Def[Any]) = rhs match {
-    case a@ArrayBufferNew(xs) => emitValDef(sym, src"scala.collection.mutable.ArrayBuffer[${a.mA}](${(xs map {quote}).mkString(",")})")
+    case ArrayBufferNew(xs, mA) => emitValDef(sym, src"scala.collection.mutable.ArrayBuffer[$mA](${xs.map(quote).mkString(",")})")
     case ArrayBufferMkString(l, sep) => emitValDef(sym, src"$l.mkString($sep)")
     case ArrayBufferAppend(l, e) => emitValDef(sym, src"$l += $e")
     case ArrayBufferClear(l) => emitValDef(sym, src"$l.clear()")

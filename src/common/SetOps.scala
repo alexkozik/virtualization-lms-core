@@ -34,7 +34,7 @@ trait SetOps extends Base {
 }
 
 trait SetOpsExp extends SetOps with ArrayOps with EffectExp {
-  case class SetNew[A:Manifest](xs: Seq[Exp[A]], mA: Manifest[A]) extends Def[Set[A]]
+  case class SetNew[A](xs: Seq[Exp[A]], mA: Manifest[A]) extends Def[Set[A]]
   case class SetContains[A:Manifest](s: Exp[Set[A]], i: Exp[A]) extends Def[Boolean]
   case class SetAdd[A:Manifest](s: Exp[Set[A]], i: Exp[A]) extends Def[Unit]
   case class SetRemove[A:Manifest](s: Exp[Set[A]], i: Exp[A]) extends Def[Unit]
@@ -67,7 +67,7 @@ trait ScalaGenSetOps extends BaseGenSetOps with ScalaGenEffect {
   import IR._
 
   override def emitNode(sym: Sym[Any], rhs: Def[Any]) = rhs match {
-    case SetNew(xs, mA) => emitValDef(sym, src"collection.mutable.HashSet[$mA](" + (xs map {quote}).mkString(",") + ")")
+    case SetNew(xs, mA) => emitValDef(sym, src"collection.mutable.HashSet[$mA](" + xs.map(quote).mkString(",") + ")")
     case SetContains(s,i) => emitValDef(sym, src"$s.contains($i)")
     case SetAdd(s,i) => emitValDef(sym, src"$s.add($i)")
     case SetRemove(s,i) => emitValDef(sym, src"$s.remove($i)")

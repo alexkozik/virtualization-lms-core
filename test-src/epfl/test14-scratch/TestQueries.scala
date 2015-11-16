@@ -687,7 +687,7 @@ trait StagedExp extends Staged with ScalaOpsPkgExp with BooleanOpsExpOpt with St
   object Empty {
     def apply() = List()
     def unapply[A](x:Exp[List[A]]): Boolean = x match {
-      case Def(ListNew(xs)) if xs.length == 0 => true
+      case Def(ListNew(xs, _)) if xs.length == 0 => true
       case _ => false
     }
   }
@@ -695,7 +695,7 @@ trait StagedExp extends Staged with ScalaOpsPkgExp with BooleanOpsExpOpt with St
   object Yield {
     def apply[A:Manifest](x:Exp[A]) = List(x)
     def unapply[A](x:Exp[List[A]]): Option[Exp[A]] = x match {
-      case Def(ListNew(xs)) if xs.length == 1 => Some(xs.head)
+      case Def(ListNew(xs, _)) if xs.length == 1 => Some(xs.head)
       case _ => None
     }
   }

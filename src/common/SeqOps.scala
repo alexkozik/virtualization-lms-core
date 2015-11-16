@@ -26,27 +26,27 @@ trait SeqOps extends Variables {
 }
 
 trait SeqOpsExp extends SeqOps with EffectExp {
-  case class SeqNew[A:Manifest](xs: List[Rep[A]]) extends Def[Seq[A]]
+  case class SeqNew[A](xs: Seq[Rep[A]], m: Manifest[A]) extends Def[Seq[A]]
   case class SeqLength[T:Manifest](a: Exp[Seq[T]]) extends Def[Int]
   case class SeqApply[T:Manifest](x: Exp[Seq[T]], n: Exp[Int]) extends Def[T]
   
-  def seq_new[A:Manifest](xs: Seq[Rep[A]])(implicit pos: SourceContext) = SeqNew(xs.toList)
+  def seq_new[A:Manifest](xs: Seq[Rep[A]])(implicit pos: SourceContext) = SeqNew(xs, manifest[A])
   def seq_apply[T:Manifest](x: Exp[Seq[T]], n: Exp[Int])(implicit pos: SourceContext): Exp[T] = SeqApply(x, n)
   def seq_length[T:Manifest](a: Exp[Seq[T]])(implicit pos: SourceContext): Exp[Int] = SeqLength(a)
 
   override def mirror[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Exp[A] = (e match {
-    case SeqNew(xs) => seq_new(f(xs))
+    case SeqNew(xs, m) => seq_new(f(xs))(m, pos)
     case _ => super.mirror(e,f)
   }).asInstanceOf[Exp[A]]
 
   // TODO: need override? (missing data dependency in delite kernel without it...)
   override def syms(e: Any): List[Sym[Any]] = e match {
-    case SeqNew(xs) => (xs flatMap { syms }).toList
+    case SeqNew(xs, _) => (xs flatMap { syms }).toList
     case _ => super.syms(e)
   }
 
   override def symsFreq(e: Any): List[(Sym[Any], Double)] = e match {
-    case SeqNew(xs) => (xs flatMap { freqNormal }).toList
+    case SeqNew(xs, _) => (xs flatMap { freqNormal }).toList
     case _ => super.symsFreq(e)
   }
 }
@@ -62,7 +62,7 @@ trait ScalaGenSeqOps extends BaseGenSeqOps with ScalaGenEffect {
   import IR._
 
   override def emitNode(sym: Sym[Any], rhs: Def[Any]) = rhs match {
-    case SeqNew(xs) => emitValDef(sym, src"Seq($xs)")
+    case SeqNew(xs, _) => emitValDef(sym, src"Seq($xs)")
     case SeqLength(x) => emitValDef(sym, src"$x.length")
     case SeqApply(x,n) => emitValDef(sym, src"$x($n)")
     case _ => super.emitNode(sym, rhs)
