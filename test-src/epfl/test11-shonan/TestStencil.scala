@@ -25,7 +25,7 @@ class TestStencil extends FileDiffSuite {
   trait Impl extends DSL with Runner with ArrayOpsExpOpt with NumericOpsExpOpt
       with OrderingOpsExpOpt with BooleanOpsExp 
       with EqualExpOpt with VariablesExpOpt with RangeOpsExp with StaticDataExp
-      with IfThenElseExpOpt with PrintExp with PrimitiveOpsExp
+      with IfThenElseExpOpt with PrintExp with PrimitiveOpsExpOpt
       with CompileScala { self => 
     //override val verbosity = 1
 
@@ -74,19 +74,19 @@ class TestStencil extends FileDiffSuite {
     }
     
     // some arithemetic rewrites
-    override def int_plus(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext): Exp[Int] = ((lhs,rhs) match {
-      case (Def(IntPlus(x:Exp[Int],Const(y:Int))), Const(z:Int)) => int_plus(x, unit(y+z)) // (x+y)+z --> x+(y+z)
-      case (Def(IntMinus(x:Exp[Int],Const(y:Int))), Const(z:Int)) => int_minus(x, unit(y-z)) // (x-y)+z --> x-(y-z)
+    override def prim_plus[A](lhs: Exp[A], rhs: Exp[A])(implicit m: Manifest[A], n: Numeric[A], pos: SourceContext): Exp[A] = ((lhs,rhs) match {
+      case (Def(PrimPlus(x:Exp[Int],Const(y:Int),_,_)), Const(z:Int)) if m == Manifest.Int => int_plus(x, unit(y+z)) // (x+y)+z --> x+(y+z)
+      case (Def(PrimMinus(x:Exp[Int],Const(y:Int),_,_)), Const(z:Int)) if m == Manifest.Int => int_minus(x, unit(y-z)) // (x-y)+z --> x-(y-z)
       case (x: Exp[Int], Const(z:Int)) if z < 0 => int_minus(x, unit(-z))
-      case _ => super.int_plus(lhs,rhs)
-    }).asInstanceOf[Exp[Int]]
+      case _ => super.prim_plus(lhs,rhs)
+    }).asInstanceOf[Exp[A]]
 
-    override def int_minus(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext): Exp[Int] = ((lhs,rhs) match {
-      case (Def(IntMinus(x:Exp[Int],Const(y:Int))), Const(z:Int)) => int_minus(x, unit(y+z)) // (x-y)-z --> x-(y+z)
-      case (Def(IntPlus(x:Exp[Int],Const(y:Int))), Const(z:Int)) => int_plus(x, unit(y-z)) // (x+y)-z --> x+(y-z)
+    override def prim_minus[A](lhs: Exp[A], rhs: Exp[A])(implicit m: Manifest[A], n: Numeric[A], pos: SourceContext): Exp[A] = ((lhs,rhs) match {
+      case (Def(PrimMinus(x:Exp[Int],Const(y:Int),_,_)), Const(z:Int)) if m == Manifest.Int => int_minus(x, unit(y+z)) // (x-y)-z --> x-(y+z)
+      case (Def(PrimPlus(x:Exp[Int],Const(y:Int),_,_)), Const(z:Int)) if m == Manifest.Int => int_plus(x, unit(y-z)) // (x+y)-z --> x+(y-z)
       case (x: Exp[Int], Const(z:Int)) if z < 0 => int_plus(x, unit(-z))
-      case _ => super.int_minus(lhs,rhs)
-    }).asInstanceOf[Exp[Int]]
+      case _ => super.prim_minus(lhs,rhs)
+    }).asInstanceOf[Exp[A]]
 
     override def numeric_plus[T:Numeric:Manifest](lhs: Exp[T], rhs: Exp[T])(implicit pos: SourceContext): Exp[T] = ((lhs,rhs) match {
       case (Def(NumericPlus(x:Exp[Int],Const(y:Int))), Const(z:Int)) => numeric_plus(x, unit(y+z)) // (x+y)+z --> x+(y+z)

@@ -1,6 +1,7 @@
 package scala.lms
 package common
 
+import scala.lms.internal.GenerationFailedException
 import scala.lms.util.OverloadHack
 import scala.reflect.SourceContext
 
@@ -288,359 +289,265 @@ trait PrimitiveOps extends Variables with OverloadHack {
 
 trait PrimitiveOpsExp extends PrimitiveOps with EffectExp {
   this: ImplicitOps =>
-  
+
+  // General primitive numeric operations
+  // Manifests included directly in the class to simplify matching
+  case class PrimParse[A](s: Exp[String], m: Manifest[A]) extends Def[A]
+  case class PrimConvert[A, B](lhs: Exp[A], mA: Manifest[A], mB: Manifest[B], n: Numeric[A]) extends Def[B] {
+    override def toString = s"PrimConvert($lhs,$mA,$mB)"
+  }
+  case class PrimPlus[A](lhs: Exp[A], rhs: Exp[A], m: Manifest[A], n: Numeric[A]) extends Def[A] {
+    override def toString = s"PrimPlus($lhs,$rhs,$m)"
+  }
+  case class PrimMinus[A](lhs: Exp[A], rhs: Exp[A], m: Manifest[A], n: Numeric[A]) extends Def[A] {
+    override def toString = s"PrimMinus($lhs,$rhs,$m)"
+  }
+  case class PrimTimes[A](lhs: Exp[A], rhs: Exp[A], m: Manifest[A], n: Numeric[A]) extends Def[A] {
+    override def toString = s"PrimTimes($lhs,$rhs,$m)"
+  }
+  case class PrimMinValue[A](m: Manifest[A]) extends Def[A]
+  case class PrimMaxValue[A](m: Manifest[A]) extends Def[A]
+
+  // Primitive floating point operations
+  case class PrimFPDivide[A](lhs: Exp[A], rhs: Exp[A], m: Manifest[A], f: Fractional[A]) extends Def[A] {
+    override def toString = s"PrimFPDivide($lhs,$rhs,$m)"
+  }
+  case class PrimFPPositiveInfinity[A](m: Manifest[A]) extends Def[A]
+  case class PrimFPNegativeInfinity[A](m: Manifest[A]) extends Def[A]
+
+  // Primitive integral operations
+  case class PrimIntegralDivide[A](lhs: Exp[A], rhs: Exp[A], m: Manifest[A], i: Integral[A]) extends Def[A] {
+    override def toString = s"PrimIntegralDivide($lhs,$rhs,$m)"
+  }
+  case class PrimIntegralMod[A](lhs: Exp[A], rhs: Exp[A], m: Manifest[A], i: Integral[A]) extends Def[A] {
+    override def toString = s"PrimIntegralMod($lhs,$rhs,$m)"
+  }
+  case class PrimIntegralBitwiseOr[A](lhs: Exp[A], rhs: Exp[A], m: Manifest[A]) extends Def[A]
+  case class PrimIntegralBitwiseAnd[A](lhs: Exp[A], rhs: Exp[A], m: Manifest[A]) extends Def[A]
+  case class PrimIntegralBitwiseXor[A](lhs: Exp[A], rhs: Exp[A], m: Manifest[A]) extends Def[A]
+  case class PrimIntegralBitwiseNot[A](lhs: Exp[A], m: Manifest[A]) extends Def[A]
+  case class PrimIntegralLeftShift[A](lhs: Exp[A], rhs: Exp[Int], m: Manifest[A]) extends Def[A]
+  case class PrimIntegralRightShiftArith[A](lhs: Exp[A], rhs: Exp[Int], m: Manifest[A]) extends Def[A]
+  case class PrimIntegralRightShiftLogical[A](lhs: Exp[A], rhs: Exp[Int], m: Manifest[A]) extends Def[A]
+
+  def prim_parse[A](s: Exp[String])(implicit m: Manifest[A], pos: SourceContext): Exp[A] =
+    PrimParse(s, m)
+  def prim_convert[A, B](lhs: Exp[A])(implicit mA: Manifest[A], mB: Manifest[B], n: Numeric[A], pos: SourceContext): Exp[B] =
+    PrimConvert(lhs, mA, mB, n)
+  def prim_plus[A](lhs: Exp[A], rhs: Exp[A])(implicit m: Manifest[A], n: Numeric[A], pos: SourceContext): Exp[A] =
+    PrimPlus(lhs, rhs, m, n)
+  def prim_minus[A](lhs: Exp[A], rhs: Exp[A])(implicit m: Manifest[A], n: Numeric[A], pos: SourceContext): Exp[A] =
+    PrimMinus(lhs, rhs, m, n)
+  def prim_times[A](lhs: Exp[A], rhs: Exp[A])(implicit m: Manifest[A], n: Numeric[A], pos: SourceContext): Exp[A] =
+    PrimTimes(lhs, rhs, m, n)
+  def prim_min_value[A : Manifest] = PrimMinValue(manifest[A])
+  def prim_max_value[A : Manifest] = PrimMaxValue(manifest[A])
+
+  def prim_fp_divide[A](lhs: Exp[A], rhs: Exp[A])(implicit m: Manifest[A], f: Fractional[A], pos: SourceContext): Exp[A] =
+    PrimFPDivide(lhs, rhs, m, f)
+  def prim_pos_inf[A : Manifest]: Exp[A] = PrimFPPositiveInfinity(manifest[A])
+  def prim_neg_inf[A : Manifest]: Exp[A] = PrimFPNegativeInfinity(manifest[A])
+
+  def prim_integral_divide[A](lhs: Exp[A], rhs: Exp[A])(implicit m: Manifest[A], i: Integral[A], pos: SourceContext): Exp[A] =
+    PrimIntegralDivide(lhs, rhs, m, i)
+  def prim_mod[A](lhs: Exp[A], rhs: Exp[A])(implicit m: Manifest[A], i: Integral[A], pos: SourceContext): Exp[A] =
+    PrimIntegralMod(lhs, rhs, m, i)
+  def prim_bitwise_or[A : Manifest](lhs: Exp[A], rhs: Exp[A])(implicit pos: SourceContext): Exp[A] =
+    PrimIntegralBitwiseOr(lhs, rhs, manifest[A])
+  def prim_bitwise_and[A : Manifest](lhs: Exp[A], rhs: Exp[A])(implicit pos: SourceContext): Exp[A] =
+    PrimIntegralBitwiseAnd(lhs, rhs, manifest[A])
+  def prim_bitwise_xor[A : Manifest](lhs: Exp[A], rhs: Exp[A])(implicit pos: SourceContext): Exp[A] =
+    PrimIntegralBitwiseXor(lhs, rhs, manifest[A])
+  def prim_bitwise_not[A : Manifest](lhs: Exp[A])(implicit pos: SourceContext): Exp[A] =
+    PrimIntegralBitwiseNot(lhs, manifest[A])
+  def prim_left_shift[A : Manifest](lhs: Exp[A], rhs: Exp[Int])(implicit pos: SourceContext): Exp[A] =
+    PrimIntegralLeftShift(lhs, rhs, manifest[A])
+  def prim_right_shift_arithmetic[A : Manifest](lhs: Exp[A], rhs: Exp[Int])(implicit pos: SourceContext): Exp[A] =
+    PrimIntegralRightShiftArith(lhs, rhs, manifest[A])
+  def prim_right_shift_logical[A : Manifest](lhs: Exp[A], rhs: Exp[Int])(implicit pos: SourceContext): Exp[A] =
+    PrimIntegralRightShiftLogical(lhs, rhs, manifest[A])
+
+  implicit class PrimToOp[A : Manifest : Numeric](lhs: Exp[A]) {
+    def to[B : Manifest]: Exp[B] = prim_convert[A, B](lhs)
+  }
+
   /**
    * Double
    */
-  case class ObjDoubleParseDouble(s: Exp[String]) extends Def[Double]
-  case class ObjDoublePositiveInfinity() extends Def[Double]
-  case class ObjDoubleNegativeInfinity() extends Def[Double]
-  case class ObjDoubleMinValue() extends Def[Double]
-  case class ObjDoubleMaxValue() extends Def[Double]
-  case class DoubleToInt(lhs: Exp[Double]) extends Def[Int]
-  case class DoubleToFloat(lhs: Exp[Double]) extends Def[Float]
-  case class DoublePlus(lhs: Exp[Double], rhs: Exp[Double]) extends Def[Double]
-  case class DoubleMinus(lhs: Exp[Double], rhs: Exp[Double]) extends Def[Double]
-  case class DoubleTimes(lhs: Exp[Double], rhs: Exp[Double]) extends Def[Double]
-  case class DoubleDivide(lhs: Exp[Double], rhs: Exp[Double]) extends Def[Double]  
-
-  def obj_double_parse_double(s: Exp[String])(implicit pos: SourceContext) = ObjDoubleParseDouble(s)
-  def obj_double_positive_infinity(implicit pos: SourceContext) = ObjDoublePositiveInfinity()
-  def obj_double_negative_infinity(implicit pos: SourceContext) = ObjDoubleNegativeInfinity()
-  def obj_double_min_value(implicit pos: SourceContext) = ObjDoubleMinValue()
-  def obj_double_max_value(implicit pos: SourceContext) = ObjDoubleMaxValue()
-  def double_to_int(lhs: Exp[Double])(implicit pos: SourceContext) = DoubleToInt(lhs)
-  def double_to_float(lhs: Exp[Double])(implicit pos: SourceContext) = DoubleToFloat(lhs)
-  def double_plus(lhs: Exp[Double], rhs: Exp[Double])(implicit pos: SourceContext) : Exp[Double] = DoublePlus(lhs,rhs)
-  def double_minus(lhs: Exp[Double], rhs: Exp[Double])(implicit pos: SourceContext) : Exp[Double] = DoubleMinus(lhs,rhs)
-  def double_times(lhs: Exp[Double], rhs: Exp[Double])(implicit pos: SourceContext) : Exp[Double] = DoubleTimes(lhs,rhs)
-  def double_divide(lhs: Exp[Double], rhs: Exp[Double])(implicit pos: SourceContext) : Exp[Double] = DoubleDivide(lhs,rhs)
+  def obj_double_parse_double(s: Exp[String])(implicit pos: SourceContext) = prim_parse[Double](s)
+  def obj_double_positive_infinity(implicit pos: SourceContext) = prim_pos_inf[Double]
+  def obj_double_negative_infinity(implicit pos: SourceContext) = prim_neg_inf[Double]
+  def obj_double_min_value(implicit pos: SourceContext) = prim_min_value[Double]
+  def obj_double_max_value(implicit pos: SourceContext) = prim_max_value[Double]
+  def double_to_int(lhs: Exp[Double])(implicit pos: SourceContext) = lhs.to[Int]
+  def double_to_float(lhs: Exp[Double])(implicit pos: SourceContext) = lhs.to[Float]
+  def double_plus(lhs: Exp[Double], rhs: Exp[Double])(implicit pos: SourceContext): Exp[Double] = prim_plus(lhs,rhs)
+  def double_minus(lhs: Exp[Double], rhs: Exp[Double])(implicit pos: SourceContext): Exp[Double] = prim_minus(lhs,rhs)
+  def double_times(lhs: Exp[Double], rhs: Exp[Double])(implicit pos: SourceContext): Exp[Double] = prim_times(lhs,rhs)
+  def double_divide(lhs: Exp[Double], rhs: Exp[Double])(implicit pos: SourceContext): Exp[Double] = prim_fp_divide(lhs,rhs)
 
   /**
    * Float
    */  
-  case class ObjFloatParseFloat(s: Exp[String]) extends Def[Float]
-  case class FloatToInt(lhs: Exp[Float]) extends Def[Int]
-  case class FloatToDouble(lhs: Exp[Float]) extends Def[Double]  
-  case class FloatPlus(lhs: Exp[Float], rhs: Exp[Float]) extends Def[Float]
-  case class FloatMinus(lhs: Exp[Float], rhs: Exp[Float]) extends Def[Float]
-  case class FloatTimes(lhs: Exp[Float], rhs: Exp[Float]) extends Def[Float]
-  case class FloatDivide(lhs: Exp[Float], rhs: Exp[Float]) extends Def[Float]  
-  
-  def obj_float_parse_float(s: Exp[String])(implicit pos: SourceContext) = ObjFloatParseFloat(s)
-  def float_to_int(lhs: Exp[Float])(implicit pos: SourceContext) = FloatToInt(lhs)
-  def float_to_double(lhs: Exp[Float])(implicit pos: SourceContext) = FloatToDouble(lhs)  
-  def float_plus(lhs: Exp[Float], rhs: Exp[Float])(implicit pos: SourceContext) : Exp[Float] = FloatPlus(lhs,rhs)
-  def float_minus(lhs: Exp[Float], rhs: Exp[Float])(implicit pos: SourceContext) : Exp[Float] = FloatMinus(lhs,rhs)
-  def float_times(lhs: Exp[Float], rhs: Exp[Float])(implicit pos: SourceContext) : Exp[Float] = FloatTimes(lhs,rhs)
-  def float_divide(lhs: Exp[Float], rhs: Exp[Float])(implicit pos: SourceContext) : Exp[Float] = FloatDivide(lhs,rhs)
+
+  def obj_float_parse_float(s: Exp[String])(implicit pos: SourceContext) = prim_parse[Float](s)
+  def float_to_int(lhs: Exp[Float])(implicit pos: SourceContext) = lhs.to[Int]
+  def float_to_double(lhs: Exp[Float])(implicit pos: SourceContext) = lhs.to[Double]
+  def float_plus(lhs: Exp[Float], rhs: Exp[Float])(implicit pos: SourceContext): Exp[Float] = prim_plus(lhs,rhs)
+  def float_minus(lhs: Exp[Float], rhs: Exp[Float])(implicit pos: SourceContext): Exp[Float] = prim_minus(lhs,rhs)
+  def float_times(lhs: Exp[Float], rhs: Exp[Float])(implicit pos: SourceContext): Exp[Float] = prim_times(lhs,rhs)
+  def float_divide(lhs: Exp[Float], rhs: Exp[Float])(implicit pos: SourceContext): Exp[Float] = prim_fp_divide(lhs,rhs)
    
   /**
    * Int
    */
-  case class ObjIntegerParseInt(s: Exp[String]) extends Def[Int]
-  case class ObjIntMaxValue() extends Def[Int]
-  case class ObjIntMinValue() extends Def[Int]
-  case class IntPlus(lhs: Exp[Int], rhs: Exp[Int]) extends Def[Int]
-  case class IntMinus(lhs: Exp[Int], rhs: Exp[Int]) extends Def[Int]
-  case class IntTimes(lhs: Exp[Int], rhs: Exp[Int]) extends Def[Int]
   // case class IntDivideFrac[A:Manifest:Fractional](lhs: Exp[Int], rhs: Exp[A]) extends Def[A]
-  case class IntDivide(lhs: Exp[Int], rhs: Exp[Int]) extends Def[Int]
-  case class IntMod(lhs: Exp[Int], rhs: Exp[Int]) extends Def[Int]
-  case class IntBitwiseOr(lhs: Exp[Int], rhs: Exp[Int]) extends Def[Int]
-  case class IntBitwiseAnd(lhs: Exp[Int], rhs: Exp[Int]) extends Def[Int]
-  case class IntBitwiseXor(lhs: Exp[Int], rhs: Exp[Int]) extends Def[Int]
-  case class IntLeftShift(lhs: Exp[Int], rhs: Exp[Int]) extends Def[Int]
-  case class IntRightShiftArith(lhs: Exp[Int], rhs: Exp[Int]) extends Def[Int]
-  case class IntRightShiftLogical(lhs: Exp[Int], rhs: Exp[Int]) extends Def[Int]
-  case class IntBitwiseNot(lhs: Exp[Int]) extends Def[Int]
-  case class IntToLong(lhs: Exp[Int]) extends Def[Long]
-  case class IntToFloat(lhs: Exp[Int]) extends Def[Float]
-  case class IntToDouble(lhs: Exp[Int]) extends Def[Double]
 
-  def obj_integer_parse_int(s: Rep[String])(implicit pos: SourceContext) = ObjIntegerParseInt(s)
-  def obj_int_max_value(implicit pos: SourceContext) = ObjIntMaxValue()
-  def obj_int_min_value(implicit pos: SourceContext) = ObjIntMinValue()
-  def int_plus(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) : Exp[Int] = (lhs, rhs) match {
-    case (Const(0), r) => r
-    case (l, Const(0)) => l
-    case (Const(x), Const(y)) => Const(x+y)
-    case _ => IntPlus(lhs,rhs)
-  }
-  def int_minus(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) : Exp[Int] = (lhs, rhs) match {
-    case (l, Const(0)) => l
-    case (Const(x), Const(y)) => Const(x-y)
-    case _ => IntMinus(lhs, rhs)
-  }
-  def int_times(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) : Exp[Int] = (lhs, rhs) match {
-    case (l@Const(0), r) => l
-    case (l, r@Const(0)) => r
-    case (Const(1), r) => r
-    case (l, Const(1)) => l
-    case (Const(x), Const(y)) => Const(x*y)
-    case _ => IntTimes(lhs, rhs)
-  }
+  def obj_integer_parse_int(s: Rep[String])(implicit pos: SourceContext) = prim_parse[Int](s)
+  def obj_int_max_value(implicit pos: SourceContext) = prim_max_value[Int]
+  def obj_int_min_value(implicit pos: SourceContext) = prim_min_value[Int]
+  def int_plus(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext): Exp[Int] = prim_plus(lhs, rhs)
+  def int_minus(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext): Exp[Int] = prim_minus(lhs, rhs)
+  def int_times(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext): Exp[Int] = prim_times(lhs, rhs)
   // def int_divide_frac[A:Manifest:Fractional](lhs: Exp[Int], rhs: Exp[A])(implicit pos: SourceContext) : Exp[A] = IntDivideFrac(lhs, rhs)
-  def int_divide(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) : Exp[Int] = IntDivide(lhs, rhs)
-  def int_mod(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) = IntMod(lhs, rhs)
-  def int_bitwise_or(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) = IntBitwiseOr(lhs, rhs)
-  def int_bitwise_and(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) = IntBitwiseAnd(lhs, rhs)
-  def int_bitwise_xor(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) = IntBitwiseXor(lhs, rhs)
-  def int_bitwise_not(lhs: Exp[Int])(implicit pos: SourceContext) = IntBitwiseNot(lhs)
-  def int_to_long(lhs: Exp[Int])(implicit pos: SourceContext) = IntToLong(lhs)
-  def int_to_float(lhs: Exp[Int])(implicit pos: SourceContext) = IntToFloat(lhs)
-  def int_to_double(lhs: Exp[Int])(implicit pos: SourceContext) = IntToDouble(lhs)
-  def int_left_shift(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) = IntLeftShift(lhs, rhs)
-  def int_right_shift_arithmetic(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) = IntRightShiftArith(lhs, rhs)
-  def int_right_shift_logical(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) = IntRightShiftLogical(lhs, rhs)
+  def int_divide(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext): Exp[Int] = prim_integral_divide(lhs, rhs)
+  def int_mod(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) = prim_mod(lhs, rhs)
+  def int_bitwise_or(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) = prim_bitwise_or(lhs, rhs)
+  def int_bitwise_and(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) = prim_bitwise_and(lhs, rhs)
+  def int_bitwise_xor(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) = prim_bitwise_xor(lhs, rhs)
+  def int_bitwise_not(lhs: Exp[Int])(implicit pos: SourceContext) = prim_bitwise_not(lhs)
+  def int_to_long(lhs: Exp[Int])(implicit pos: SourceContext) = lhs.to[Long]
+  def int_to_float(lhs: Exp[Int])(implicit pos: SourceContext) = lhs.to[Float]
+  def int_to_double(lhs: Exp[Int])(implicit pos: SourceContext) = lhs.to[Double]
+  def int_left_shift(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) = prim_left_shift(lhs, rhs)
+  def int_right_shift_arithmetic(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) = prim_right_shift_arithmetic(lhs, rhs)
+  def int_right_shift_logical(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext) = prim_right_shift_logical(lhs, rhs)
 
 
   /**
    * Long
    */
-  case class ObjLongParseLong(s: Exp[String]) extends Def[Long]
-  case class LongBitwiseOr(lhs: Exp[Long], rhs: Exp[Long]) extends Def[Long]
-  case class LongBitwiseAnd(lhs: Exp[Long], rhs: Exp[Long]) extends Def[Long]
-  case class LongLeftShift(lhs: Exp[Long], rhs: Exp[Int]) extends Def[Long]
-  case class LongRightShiftUnsigned(lhs: Exp[Long], rhs: Exp[Int]) extends Def[Long]
-  case class LongToInt(lhs: Exp[Long]) extends Def[Int]
-  case class LongMod(lhs: Exp[Long], rhs: Exp[Long]) extends Def[Long]
 
-  def obj_long_parse_long(s: Exp[String])(implicit pos: SourceContext) = ObjLongParseLong(s)
-  def long_bitwise_or(lhs: Exp[Long], rhs: Exp[Long])(implicit pos: SourceContext) = LongBitwiseOr(lhs,rhs)
-  def long_bitwise_and(lhs: Exp[Long], rhs: Exp[Long])(implicit pos: SourceContext) = LongBitwiseAnd(lhs,rhs)
-  def long_left_shift(lhs: Exp[Long], rhs: Exp[Int])(implicit pos: SourceContext) = LongLeftShift(lhs,rhs)
-  def long_right_shift_arithmetic(lhs: Exp[Long], rhs: Exp[Int])(implicit pos: SourceContext) = LongRightShiftUnsigned(lhs,rhs)
-  def long_to_int(lhs: Exp[Long])(implicit pos: SourceContext) = LongToInt(lhs)
-  def long_mod(lhs: Exp[Long], rhs: Exp[Long])(implicit pos: SourceContext) = LongMod(lhs, rhs)
+  def obj_long_parse_long(s: Exp[String])(implicit pos: SourceContext) = prim_parse[Long](s)
+  def long_bitwise_or(lhs: Exp[Long], rhs: Exp[Long])(implicit pos: SourceContext) = prim_bitwise_or(lhs,rhs)
+  def long_bitwise_and(lhs: Exp[Long], rhs: Exp[Long])(implicit pos: SourceContext) = prim_bitwise_and(lhs,rhs)
+  def long_left_shift(lhs: Exp[Long], rhs: Exp[Int])(implicit pos: SourceContext) = prim_left_shift(lhs,rhs)
+  def long_right_shift_arithmetic(lhs: Exp[Long], rhs: Exp[Int])(implicit pos: SourceContext) = prim_right_shift_arithmetic(lhs,rhs)
+  def long_to_int(lhs: Exp[Long])(implicit pos: SourceContext) = lhs.to[Int]
+  def long_mod(lhs: Exp[Long], rhs: Exp[Long])(implicit pos: SourceContext) = prim_mod(lhs, rhs)
     
   override def mirror[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Exp[A] = ({
-    implicit var a: Numeric[A] = null // hack!! need to store it in Def instances??
     e match {
-      case ObjDoubleParseDouble(x) => obj_double_parse_double(f(x))
-      case ObjDoublePositiveInfinity() => obj_double_positive_infinity
-      case ObjDoubleNegativeInfinity() => obj_double_negative_infinity
-      case ObjDoubleMinValue() => obj_double_min_value
-      case ObjDoubleMaxValue() => obj_double_max_value
-      case DoubleToInt(x) => double_to_int(f(x))
-      case DoubleToFloat(x) => double_to_float(f(x))
-      case DoublePlus(x,y) => double_plus(f(x),f(y))
-      case DoubleMinus(x,y) => double_minus(f(x),f(y))
-      case DoubleTimes(x,y) => double_times(f(x),f(y))
-      case DoubleDivide(x,y) => double_divide(f(x),f(y)) 
-      case ObjFloatParseFloat(x) => obj_float_parse_float(f(x))   
-      case FloatToInt(x) => float_to_int(f(x))
-      case FloatToDouble(x) => float_to_double(f(x))  
-      case FloatPlus(x,y) => float_plus(f(x),f(y))
-      case FloatMinus(x,y) => float_minus(f(x),f(y))
-      case FloatTimes(x,y) => float_times(f(x),f(y))
-      case FloatDivide(x,y) => float_divide(f(x),f(y))            
-      case ObjIntegerParseInt(x) => obj_integer_parse_int(f(x))
-      case ObjIntMaxValue() => obj_int_max_value
-      case ObjIntMinValue() => obj_int_min_value
-      case IntBitwiseNot(x) => int_bitwise_not(f(x))
-      case IntPlus(x,y) => int_plus(f(x),f(y))
-      case IntMinus(x,y) => int_minus(f(x),f(y))
-      case IntTimes(x,y) => int_times(f(x),f(y))
-      case IntDivide(x,y) => int_divide(f(x),f(y))
-      case IntMod(x,y) => int_mod(f(x),f(y))
-      case IntBitwiseOr(x,y) => int_bitwise_or(f(x),f(y))
-      case IntBitwiseAnd(x,y) => int_bitwise_and(f(x),f(y))
-      case IntBitwiseXor(x,y) => int_bitwise_xor(f(x),f(y))
-      case IntToLong(x) => int_to_long(f(x))
-      case IntToFloat(x) => int_to_float(f(x))
-      case IntToDouble(x) => int_to_double(f(x))
-      case IntLeftShift(x,y) => int_left_shift(f(x),f(y))
-      case IntRightShiftLogical(x,y) => int_right_shift_logical(f(x),f(y))
-      case IntRightShiftArith(x,y) => int_right_shift_arithmetic(f(x),f(y))
-      case ObjLongParseLong(x) => obj_long_parse_long(f(x))
-      case LongMod(x,y) => long_mod(f(x),f(y))
-      case LongLeftShift(x,y) => long_left_shift(f(x),f(y))
-      case LongBitwiseOr(x,y) => long_bitwise_or(f(x),f(y))
-      case LongBitwiseAnd(x,y) => long_bitwise_and(f(x),f(y))
-      case LongToInt(x) => long_to_int(f(x))
-      case LongRightShiftUnsigned(x,y) => long_right_shift_arithmetic(f(x),f(y))
+      case PrimParse(x, m) => prim_parse(f(x))(m, pos)
+      case PrimFPPositiveInfinity(m) => prim_pos_inf(m)
+      case PrimFPNegativeInfinity(m) => prim_neg_inf(m)
+      case PrimMaxValue(m) => prim_max_value(m)
+      case PrimMinValue(m) => prim_min_value(m)
+      case PrimConvert(x, mA, mB, n) => prim_convert(f(x))(mA, mB, n, pos)
+      case PrimPlus(x,y,m,n) => prim_plus(f(x),f(y))(m.asInstanceOf[Manifest[A]], n.asInstanceOf[Numeric[A]], pos)
+      case PrimMinus(x,y,m,n) => prim_minus(f(x),f(y))(m.asInstanceOf[Manifest[A]], n.asInstanceOf[Numeric[A]], pos)
+      case PrimTimes(x,y,m,n) => prim_times(f(x),f(y))(m.asInstanceOf[Manifest[A]], n.asInstanceOf[Numeric[A]], pos)
+      case PrimFPDivide(x,y,m,n) => prim_fp_divide(f(x),f(y))(m.asInstanceOf[Manifest[A]], n.asInstanceOf[Fractional[A]], pos)
+      case PrimIntegralDivide(x,y,m,n) => prim_integral_divide(f(x),f(y))(m.asInstanceOf[Manifest[A]], n.asInstanceOf[Integral[A]], pos)
+      case PrimIntegralMod(x,y,m,n) => prim_mod(f(x),f(y))(m.asInstanceOf[Manifest[A]], n.asInstanceOf[Integral[A]], pos)
+      case PrimIntegralBitwiseOr(x,y,m) => prim_bitwise_or(f(x),f(y))(m.asInstanceOf[Manifest[A]], pos)
+      case PrimIntegralBitwiseAnd(x,y,m) => prim_bitwise_and(f(x),f(y))(m.asInstanceOf[Manifest[A]], pos)
+      case PrimIntegralBitwiseXor(x,y,m) => prim_bitwise_xor(f(x),f(y))(m.asInstanceOf[Manifest[A]], pos)
+      case PrimIntegralLeftShift(x,y,m) => prim_left_shift(f(x),f(y))(m.asInstanceOf[Manifest[A]], pos)
+      case PrimIntegralRightShiftLogical(x,y,m) => prim_right_shift_logical(f(x),f(y))(m.asInstanceOf[Manifest[A]], pos)
+      case PrimIntegralRightShiftArith(x,y,m) => prim_right_shift_arithmetic(f(x),f(y))(m.asInstanceOf[Manifest[A]], pos)
 
-      case Reflect(ObjDoubleParseDouble(x), u, es) => reflectMirrored(Reflect(ObjDoubleParseDouble(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(ObjDoublePositiveInfinity(), u, es) => reflectMirrored(Reflect(ObjDoublePositiveInfinity(), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(ObjDoubleNegativeInfinity(), u, es) => reflectMirrored(Reflect(ObjDoubleNegativeInfinity(), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(ObjDoubleMinValue(), u, es) => reflectMirrored(Reflect(ObjDoubleMinValue(), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(ObjDoubleMaxValue(), u, es) => reflectMirrored(Reflect(ObjDoubleMaxValue(), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(DoubleToInt(x), u, es) => reflectMirrored(Reflect(DoubleToInt(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(DoubleToFloat(x), u, es) => reflectMirrored(Reflect(DoubleToFloat(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(DoublePlus(x,y), u, es) => reflectMirrored(Reflect(DoublePlus(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(DoubleMinus(x,y), u, es) => reflectMirrored(Reflect(DoubleMinus(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(DoubleTimes(x,y), u, es) => reflectMirrored(Reflect(DoubleTimes(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(DoubleDivide(x,y), u, es) => reflectMirrored(Reflect(DoubleDivide(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(FloatToInt(x), u, es) => reflectMirrored(Reflect(FloatToInt(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(FloatToDouble(x), u, es) => reflectMirrored(Reflect(FloatToDouble(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(FloatPlus(x,y), u, es) => reflectMirrored(Reflect(FloatPlus(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(FloatMinus(x,y), u, es) => reflectMirrored(Reflect(FloatMinus(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(FloatTimes(x,y), u, es) => reflectMirrored(Reflect(FloatTimes(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(FloatDivide(x,y), u, es) => reflectMirrored(Reflect(FloatDivide(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(ObjIntegerParseInt(x), u, es) => reflectMirrored(Reflect(ObjIntegerParseInt(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(ObjIntMinValue(), u, es) => reflectMirrored(Reflect(ObjIntMinValue(), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(ObjIntMaxValue(), u, es) => reflectMirrored(Reflect(ObjIntMaxValue(), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(IntBitwiseNot(x), u, es) => reflectMirrored(Reflect(IntBitwiseNot(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(IntPlus(x,y), u, es) => reflectMirrored(Reflect(IntPlus(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(IntMinus(x,y), u, es) => reflectMirrored(Reflect(IntMinus(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(IntTimes(x,y), u, es) => reflectMirrored(Reflect(IntTimes(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(IntDivide(x,y), u, es) => reflectMirrored(Reflect(IntDivide(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(IntMod(x,y), u, es) => reflectMirrored(Reflect(IntMod(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(IntBitwiseOr(x,y), u, es) => reflectMirrored(Reflect(IntBitwiseOr(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(IntBitwiseAnd(x,y), u, es) => reflectMirrored(Reflect(IntBitwiseAnd(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(IntBitwiseXor(x,y), u, es) => reflectMirrored(Reflect(IntBitwiseXor(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(IntToLong(x), u, es) => reflectMirrored(Reflect(IntToLong(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(IntToFloat(x), u, es) => reflectMirrored(Reflect(IntToFloat(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(IntToDouble(x), u, es) => reflectMirrored(Reflect(IntToDouble(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)    
-      case Reflect(IntLeftShift(x,y), u, es) => reflectMirrored(Reflect(IntLeftShift(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(IntRightShiftLogical(x,y), u, es) => reflectMirrored(Reflect(IntRightShiftLogical(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(IntRightShiftArith(x,y), u, es) => reflectMirrored(Reflect(IntRightShiftArith(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)    
-      case Reflect(LongMod(x,y), u, es) => reflectMirrored(Reflect(LongMod(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(LongLeftShift(x,y), u, es) => reflectMirrored(Reflect(LongLeftShift(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(LongRightShiftUnsigned(x,y), u, es) => reflectMirrored(Reflect(LongRightShiftUnsigned(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(LongBitwiseOr(x,y), u, es) => reflectMirrored(Reflect(LongBitwiseOr(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(LongBitwiseAnd(x,y), u, es) => reflectMirrored(Reflect(LongBitwiseAnd(f(x),f(y)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
-      case Reflect(LongToInt(x), u, es) => reflectMirrored(Reflect(LongToInt(f(x)), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimParse(x,m), u, es) => reflectMirrored(Reflect(PrimParse(f(x),m), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimFPPositiveInfinity(m), u, es) => reflectMirrored(Reflect(PrimFPPositiveInfinity(m), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimFPNegativeInfinity(m), u, es) => reflectMirrored(Reflect(PrimFPNegativeInfinity(m), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimMaxValue(m), u, es) => reflectMirrored(Reflect(PrimMaxValue(m), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimMinValue(m), u, es) => reflectMirrored(Reflect(PrimMinValue(m), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimConvert(x, mA, mB, n), u, es) => reflectMirrored(Reflect(PrimConvert(f(x), mA, mB, n), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimPlus(x,y,m,n), u, es) => reflectMirrored(Reflect(PrimPlus(f(x),f(y),m.asInstanceOf[Manifest[A]],n.asInstanceOf[Numeric[A]]), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimMinus(x,y,m,n), u, es) => reflectMirrored(Reflect(PrimMinus(f(x),f(y),m.asInstanceOf[Manifest[A]],n.asInstanceOf[Numeric[A]]), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimTimes(x,y,m,n), u, es) => reflectMirrored(Reflect(PrimTimes(f(x),f(y),m.asInstanceOf[Manifest[A]],n.asInstanceOf[Numeric[A]]), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimFPDivide(x,y,m,n), u, es) => reflectMirrored(Reflect(PrimFPDivide(f(x),f(y),m.asInstanceOf[Manifest[A]],n.asInstanceOf[Fractional[A]]), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimIntegralDivide(x,y,m,n), u, es) => reflectMirrored(Reflect(PrimIntegralDivide(f(x),f(y),m.asInstanceOf[Manifest[A]],n.asInstanceOf[Integral[A]]), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimIntegralMod(x,y,m,n), u, es) => reflectMirrored(Reflect(PrimIntegralMod(f(x),f(y),m.asInstanceOf[Manifest[A]],n.asInstanceOf[Integral[A]]), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimIntegralBitwiseOr(x,y,m), u, es) => reflectMirrored(Reflect(PrimIntegralBitwiseOr(f(x),f(y),m.asInstanceOf[Manifest[A]]), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimIntegralBitwiseAnd(x,y,m), u, es) => reflectMirrored(Reflect(PrimIntegralBitwiseAnd(f(x),f(y),m.asInstanceOf[Manifest[A]]), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimIntegralBitwiseXor(x,y,m), u, es) => reflectMirrored(Reflect(PrimIntegralBitwiseXor(f(x),f(y),m.asInstanceOf[Manifest[A]]), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimIntegralLeftShift(x,y,m), u, es) => reflectMirrored(Reflect(PrimIntegralLeftShift(f(x),f(y),m.asInstanceOf[Manifest[A]]), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimIntegralRightShiftLogical(x,y,m), u, es) => reflectMirrored(Reflect(PrimIntegralRightShiftLogical(f(x),f(y),m.asInstanceOf[Manifest[A]]), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
+      case Reflect(PrimIntegralRightShiftArith(x,y,m), u, es) => reflectMirrored(Reflect(PrimIntegralRightShiftArith(f(x),f(y),m.asInstanceOf[Manifest[A]]), mapOver(f,u), f(es)))(mtype(manifest[A]), pos)
       case _ => super.mirror(e,f)
     }
   }).asInstanceOf[Exp[A]]
 }
 
 trait PrimitiveOpsExpOpt extends PrimitiveOpsExp {
-  override def int_plus(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext): Exp[Int] = (lhs,rhs) match {
-    case (Const(a),Const(b)) => unit(a+b)
+  override def prim_plus[A](lhs: Exp[A], rhs: Exp[A])(implicit m: Manifest[A], n: Numeric[A], pos: SourceContext): Exp[A] = (lhs,rhs) match {
+    case (Const(a),Const(b)) => unit(n.plus(a, b))
     case (Const(0),b) => b
     case (a,Const(0)) => a
-    case _ => super.int_plus(lhs,rhs)
+    case _ => super.prim_plus(lhs,rhs)
   }
 
-  override def int_minus(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext): Exp[Int] = (lhs,rhs) match {
-    case (Const(a),Const(b)) => unit(a-b)
+  override def prim_minus[A](lhs: Exp[A], rhs: Exp[A])(implicit m: Manifest[A], n: Numeric[A], pos: SourceContext): Exp[A] = (lhs,rhs) match {
+    case (Const(a),Const(b)) => unit(n.minus(a, b))
     case (a,Const(0)) => a
-    case (Def(IntPlus(llhs,lrhs)), rhs) if lrhs.equals(rhs) => llhs
-    case _ => super.int_minus(lhs,rhs)    
+    // Rewrite only valid for types with wraparound overflow
+    case (Def(PrimPlus(llhs, lrhs, Manifest.Int | Manifest.Long | Manifest.Short | Manifest.Byte, _)), rhs) =>
+      if (lrhs.equals(rhs))
+        llhs
+      else if (llhs.equals(rhs))
+        lrhs
+      else
+        super.prim_minus(lhs,rhs)
+    case _ => super.prim_minus(lhs,rhs)
   }
 
-  override def int_times(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext): Exp[Int] = (lhs,rhs) match {
-    case (Const(a),Const(b)) => unit(a*b)
-    case (Const(0),b) => Const(0)
+  override def prim_times[A](lhs: Exp[A], rhs: Exp[A])(implicit m: Manifest[A], n: Numeric[A], pos: SourceContext): Exp[A] = (lhs,rhs) match {
+    case (Const(a),Const(b)) => unit(n.times(a, b))
+    case (a @ Const(0),b) => a
     case (Const(1),b) => b
-    case (a,Const(0)) => Const(0)
+    case (a,b @ Const(0)) => b
     case (a,Const(1)) => a
-    case _ => super.int_times(lhs,rhs)    
+    case _ => super.prim_times(lhs,rhs)
   }
 
-  override def int_divide(lhs: Exp[Int], rhs: Exp[Int])(implicit pos: SourceContext): Exp[Int] = (lhs,rhs) match {
-    case (Const(a),Const(b)) if b != 0 => unit(a/b)
+  override def prim_fp_divide[A](lhs: Exp[A], rhs: Exp[A])(implicit m: Manifest[A], f: Fractional[A], pos: SourceContext): Exp[A] = (lhs,rhs) match {
+    case (Const(a),Const(b)) if b != 0 => unit(f.div(a, b))
     // case (Const(0),b) => Const(0) // invalid because b may be 0
     case (a,Const(1)) => a
-    case _ => super.int_divide(lhs, rhs)
+    case _ => super.prim_fp_divide(lhs, rhs)
   }
 
-  override def int_to_long(lhs: Rep[Int])(implicit pos: SourceContext): Rep[Long] = lhs match {
-    case Const(x) => Const(x.toLong)
-    case _ => super.int_to_long(lhs)
-  }
-
-  override def int_to_float(lhs: Rep[Int])(implicit pos: SourceContext): Rep[Float] = lhs match {
-    case Const(x) => Const(x.toFloat)
-    case _ => super.int_to_float(lhs)
-  }
-
-  override def int_to_double(lhs: Rep[Int])(implicit pos: SourceContext): Rep[Double] = lhs match {
-    case Const(x) => Const(x.toDouble)
-    case _ => super.int_to_double(lhs)
-  }
-
-  override def float_plus(lhs: Exp[Float], rhs: Exp[Float])(implicit pos: SourceContext): Exp[Float] = (lhs,rhs) match {
-    case (Const(a),Const(b)) => unit(a+b)
-    case (Const(0),b) => b
-    case (a,Const(0)) => a
-    case _ => super.float_plus(lhs,rhs)
-  }
-
-  override def float_minus(lhs: Exp[Float], rhs: Exp[Float])(implicit pos: SourceContext): Exp[Float] = (lhs,rhs) match {
-    case (Const(a),Const(b)) => unit(a-b)
-    case (a,Const(0)) => a
-    // case (Def(FloatPlus(llhs,lrhs)), rhs) if lrhs.equals(rhs) => llhs // invalid if lhs overflows
-    case _ => super.float_minus(lhs,rhs)
-  }
-
-  override def float_times(lhs: Exp[Float], rhs: Exp[Float])(implicit pos: SourceContext): Exp[Float] = (lhs,rhs) match {
-    case (Const(a),Const(b)) => unit(a*b)
-    case (Const(0),b) => Const(0)
-    case (Const(1),b) => b
-    case (a,Const(0)) => Const(0)
-    case (a,Const(1)) => a
-    case _ => super.float_times(lhs,rhs)
-  }
-
-  override def float_divide(lhs: Exp[Float], rhs: Exp[Float])(implicit pos: SourceContext): Exp[Float] = (lhs,rhs) match {
-    case (Const(a),Const(b)) if b != 0 => unit(a/b)
+  override def prim_integral_divide[A](lhs: Exp[A], rhs: Exp[A])(implicit m: Manifest[A], i: Integral[A], pos: SourceContext): Exp[A] = (lhs,rhs) match {
+    case (Const(a),Const(b)) if b != 0 => unit(i.quot(a, b))
     // case (Const(0),b) => Const(0) // invalid because b may be 0
     case (a,Const(1)) => a
-    case _ => super.float_divide(lhs, rhs)
+    case _ => super.prim_integral_divide(lhs, rhs)
   }
 
-  override def float_to_int(lhs: Rep[Float])(implicit pos: SourceContext): Rep[Int] = lhs match {
-    case Const(x) => Const(x.toInt)
-    case _ => super.float_to_int(lhs)
-  }
-
-  override def float_to_double(lhs: Rep[Float])(implicit pos: SourceContext): Rep[Double] = lhs match {
-    case Const(x) => Const(x.toDouble)
-    case Def(IntToFloat(x)) => int_to_double(x)
-    case _ => super.float_to_double(lhs)
-  }
-
-  override def double_plus(lhs: Exp[Double], rhs: Exp[Double])(implicit pos: SourceContext): Exp[Double] = (lhs,rhs) match {
-    case (Const(a),Const(b)) => unit(a+b)
-    case (Const(0),b) => b
-    case (a,Const(0)) => a
-    case _ => super.double_plus(lhs,rhs)
-  }
-
-  override def double_minus(lhs: Exp[Double], rhs: Exp[Double])(implicit pos: SourceContext): Exp[Double] = (lhs,rhs) match {
-    case (Const(a),Const(b)) => unit(a-b)
-    case (a,Const(0)) => a
-    // case (Def(DoublePlus(llhs,lrhs)), rhs) if lrhs.equals(rhs) => llhs // invalid if lhs overflows
-    case _ => super.double_minus(lhs,rhs)
-  }
-
-  override def double_times(lhs: Exp[Double], rhs: Exp[Double])(implicit pos: SourceContext): Exp[Double] = (lhs,rhs) match {
-    case (Const(a),Const(b)) => unit(a*b)
-    case (Const(0),b) => Const(0)
-    case (Const(1),b) => b
-    case (a,Const(0)) => Const(0)
-    case (a,Const(1)) => a
-    case _ => super.double_times(lhs,rhs)
-  }
-
-  override def double_divide(lhs: Exp[Double], rhs: Exp[Double])(implicit pos: SourceContext): Exp[Double] = (lhs,rhs) match {
-    case (Const(a),Const(b)) if b != 0 => unit(a/b)
-    // case (Const(0),b) => Const(0) // invalid since b may be 0
-    case (a,Const(1)) => a
-    case _ => super.double_divide(lhs, rhs)
-  }
-
-  override def double_to_int(lhs: Rep[Double])(implicit pos: SourceContext): Rep[Int] = lhs match {
-    case Const(x) => Const(x.toInt)
-    case Def(IntToDouble(x)) => x
-    case _ => super.double_to_int(lhs)
-  }
-
-  override def double_to_float(lhs: Rep[Double])(implicit pos: SourceContext): Rep[Float] = lhs match {
-    case Const(x) => Const(x.toFloat)
-    case Def(FloatToDouble(x)) => x
-    case _ => super.double_to_float(lhs)
-  }
-
-  override def long_to_int(lhs: Rep[Long])(implicit pos: SourceContext): Rep[Int] = lhs match {
-    case Const(x) => Const(x.toInt)
-    case Def(IntToLong(x)) => x
-    case _ => super.long_to_int(lhs)
-  }
+  override def prim_convert[A, B](lhs: Exp[A])(implicit mA: Manifest[A], mB: Manifest[B], n: Numeric[A], pos: SourceContext) = (lhs match {
+    case Const(x) => mB match {
+      case Manifest.Int => unit(n.toInt(x))
+      case Manifest.Long => unit(n.toLong(x))
+      case Manifest.Float => unit(n.toFloat(x))
+      case Manifest.Double => unit(n.toDouble(x))
+    }
+    case _ if mA == mB => lhs
+    case Def(PrimConvert(x, mA1, mB1, _)) =>
+      // Transitive conversions
+      if (mA1 == Manifest.Int && (mB1 == Manifest.Float || mB1 == Manifest.Long) && mB == Manifest.Double)
+        x.asInstanceOf[Exp[Int]].to[Double]
+      else if (mA1 == mB) {
+        // Inverse conversions
+        if (mB1 == Manifest.Double && (mB == Manifest.Int || mB == Manifest.Float))
+          x
+        else if (mB1 == Manifest.Long && mB == Manifest.Int)
+          x
+        else
+          super.prim_convert(lhs)(mA, mB, n, pos)
+      }
+    case _ => super.prim_convert(lhs)(mA, mB, n, pos)
+  }).asInstanceOf[Exp[B]]
 }
 
 trait ScalaGenPrimitiveOps extends ScalaGenBase {
@@ -648,50 +555,39 @@ trait ScalaGenPrimitiveOps extends ScalaGenBase {
   import IR._
   
   override def emitNode(sym: Sym[Any], rhs: Def[Any]) = rhs match {
-    case ObjDoubleParseDouble(s) => emitValDef(sym, src"java.lang.Double.parseDouble($s)")
-    case ObjDoublePositiveInfinity() => emitValDef(sym, "scala.Double.PositiveInfinity")
-    case ObjDoubleNegativeInfinity() => emitValDef(sym, "scala.Double.NegativeInfinity")
-    case ObjDoubleMinValue() => emitValDef(sym, "scala.Double.MinValue")
-    case ObjDoubleMaxValue() => emitValDef(sym, "scala.Double.MaxValue")
-    case DoublePlus(lhs,rhs) => emitValDef(sym, quote(lhs) + " + " + quote(rhs))
-    case DoubleMinus(lhs,rhs) => emitValDef(sym, quote(lhs) + " - " + quote(rhs))
-    case DoubleTimes(lhs,rhs) => emitValDef(sym, quote(lhs) + " * " + quote(rhs))
-    case DoubleDivide(lhs,rhs) => emitValDef(sym, quote(lhs) + " / " + quote(rhs))    
-    case DoubleToInt(lhs) => emitValDef(sym, quote(lhs) + ".toInt")
-    case DoubleToFloat(lhs) => emitValDef(sym, quote(lhs) + ".toFloat")    
-    case ObjFloatParseFloat(s) => emitValDef(sym, "java.lang.Float.parseFloat(" + quote(s) + ")")
-    case FloatToInt(lhs) => emitValDef(sym, quote(lhs) + ".toInt")
-    case FloatToDouble(lhs) => emitValDef(sym, quote(lhs) + ".toDouble")        
-    case FloatPlus(lhs,rhs) => emitValDef(sym, quote(lhs) + " + " + quote(rhs))
-    case FloatMinus(lhs,rhs) => emitValDef(sym, quote(lhs) + " - " + quote(rhs))
-    case FloatTimes(lhs,rhs) => emitValDef(sym, quote(lhs) + " * " + quote(rhs))
-    case FloatDivide(lhs,rhs) => emitValDef(sym, quote(lhs) + " / " + quote(rhs))    
-    case ObjIntegerParseInt(s) => emitValDef(sym, "java.lang.Integer.parseInt(" + quote(s) + ")")
-    case ObjIntMaxValue() => emitValDef(sym, "scala.Int.MaxValue")
-    case ObjIntMinValue() => emitValDef(sym, "scala.Int.MinValue")    
-    case IntPlus(lhs,rhs) => emitValDef(sym, quote(lhs) + " + " + quote(rhs))
-    case IntMinus(lhs,rhs) => emitValDef(sym, quote(lhs) + " - " + quote(rhs))
-    case IntTimes(lhs,rhs) => emitValDef(sym, quote(lhs) + " * " + quote(rhs))
+    case PrimParse(s, m) =>
+      val src = m.asInstanceOf[Manifest[_]] match {
+        case Manifest.Int => src"java.lang.Integer.parseInt($s)"
+        case _ => src"java.lang.$m.parse$m($s)"
+      }
+      emitValDef(sym, src)
+    case PrimFPPositiveInfinity(m) =>
+      val src = src"scala.$m.PositiveInfinity"
+      emitValDef(sym, src)
+    case PrimFPNegativeInfinity(m) =>
+      val src = src"scala.$m.NegativeInfinity"
+      emitValDef(sym, src)
+    case PrimMaxValue(m) =>
+      val src = src"scala.$m.MaxValue"
+      emitValDef(sym, src)
+    case PrimMinValue(m) =>
+      val src = src"scala.$m.MinValue"
+      emitValDef(sym, src)
+    case PrimPlus(lhs, rhs, _, _) => emitValDef(sym, quote(lhs) + " + " + quote(rhs))
+    case PrimMinus(lhs, rhs, _, _) => emitValDef(sym, quote(lhs) + " - " + quote(rhs))
+    case PrimTimes(lhs, rhs, _, _) => emitValDef(sym, quote(lhs) + " * " + quote(rhs))
+    case PrimFPDivide(lhs, rhs, _, _) => emitValDef(sym, quote(lhs) + " / " + quote(rhs))
+    case PrimConvert(lhs, _, mB, _) => emitValDef(sym, quote(lhs) + ".to" + mB)
     // case IntDivideFrac(lhs,rhs) => emitValDef(sym, quote(lhs) + " / " + quote(rhs))
-    case IntDivide(lhs,rhs) => emitValDef(sym, quote(lhs) + " / " + quote(rhs))
-    case IntMod(lhs,rhs) => emitValDef(sym, quote(lhs) + " % " + quote(rhs))
-    case IntBitwiseOr(lhs,rhs) => emitValDef(sym, quote(lhs) + " | " + quote(rhs))
-    case IntBitwiseAnd(lhs,rhs) => emitValDef(sym, quote(lhs) + " & " + quote(rhs))
-    case IntBitwiseXor(lhs,rhs) => emitValDef(sym, quote(lhs) + " ^ " + quote(rhs))
-    case IntLeftShift(lhs,rhs) => emitValDef(sym, quote(lhs) + " << " + quote(rhs))
-    case IntRightShiftArith(lhs, rhs) => emitValDef(sym, quote(lhs) + " >> " + quote(rhs))
-    case IntRightShiftLogical(lhs, rhs) => emitValDef(sym, quote(lhs) + " >>> " + quote(rhs))
-    case IntBitwiseNot(lhs) => emitValDef(sym, "~" + quote(lhs))
-    case IntToLong(lhs) => emitValDef(sym, quote(lhs) + ".toLong")
-    case IntToFloat(lhs) => emitValDef(sym, quote(lhs) + ".toFloat")
-    case IntToDouble(lhs) => emitValDef(sym, quote(lhs) + ".toDouble")
-    case ObjLongParseLong(s) => emitValDef(sym, "java.lang.Long.parseLong(" + quote(s) + ")")
-    case LongMod(lhs,rhs) => emitValDef(sym, quote(lhs) + " % " + quote(rhs))
-    case LongBitwiseOr(lhs,rhs) => emitValDef(sym, quote(lhs) + " | " + quote(rhs))
-    case LongBitwiseAnd(lhs,rhs) => emitValDef(sym, quote(lhs) + " & " + quote(rhs))
-    case LongLeftShift(lhs,rhs) => emitValDef(sym, quote(lhs) + " << " + quote(rhs))
-    case LongRightShiftUnsigned(lhs,rhs) => emitValDef(sym, quote(lhs) + " >>> " + quote(rhs))    
-    case LongToInt(lhs) => emitValDef(sym, quote(lhs) + ".toInt")
+    case PrimIntegralDivide(lhs, rhs, _, _) => emitValDef(sym, quote(lhs) + " / " + quote(rhs))
+    case PrimIntegralMod(lhs, rhs, _, _) => emitValDef(sym, quote(lhs) + " % " + quote(rhs))
+    case PrimIntegralBitwiseOr(lhs, rhs,_) => emitValDef(sym, quote(lhs) + " | " + quote(rhs))
+    case PrimIntegralBitwiseAnd(lhs, rhs,_) => emitValDef(sym, quote(lhs) + " & " + quote(rhs))
+    case PrimIntegralBitwiseXor(lhs, rhs,_) => emitValDef(sym, quote(lhs) + " ^ " + quote(rhs))
+    case PrimIntegralLeftShift(lhs, rhs,_) => emitValDef(sym, quote(lhs) + " << " + quote(rhs))
+    case PrimIntegralRightShiftArith(lhs, rhs, _) => emitValDef(sym, quote(lhs) + " >> " + quote(rhs))
+    case PrimIntegralRightShiftLogical(lhs, rhs, _) => emitValDef(sym, quote(lhs) + " >>> " + quote(rhs))
+    case PrimIntegralBitwiseNot(lhs, _) => emitValDef(sym, "~" + quote(lhs))
     case _ => super.emitNode(sym, rhs)
   }
 }
@@ -700,50 +596,68 @@ trait CLikeGenPrimitiveOps extends CLikeGenBase {
   val IR: PrimitiveOpsExp
   import IR._
 
+  def posInfConstant(m: Manifest[_]): String =
+    throw new GenerationFailedException(s"Constant for positive infinity of type $m unknown")
+  def negInfConstant(m: Manifest[_]): String =
+    throw new GenerationFailedException(s"Constant for negative infinity of type $m unknown")
+
   override def emitNode(sym: Sym[Any], rhs: Def[Any]) = {
     rhs match {
-      case ObjDoubleParseDouble(s) => emitValDef(sym, "strtod(" + quote(s) + ",NULL)")
-      case ObjDoubleMinValue() => emitValDef(sym, "DBL_MIN")
-      case ObjDoubleMaxValue() => emitValDef(sym, "DBL_MAX")
-      case DoublePlus(lhs,rhs) => emitValDef(sym, quote(lhs) + " + " + quote(rhs))
-      case DoubleMinus(lhs,rhs) => emitValDef(sym, quote(lhs) + " - " + quote(rhs))
-      case DoubleTimes(lhs,rhs) => emitValDef(sym, quote(lhs) + " * " + quote(rhs))
-      case DoubleDivide(lhs,rhs) => emitValDef(sym, quote(lhs) + " / " + quote(rhs))      
-      case DoubleToInt(lhs) => emitValDef(sym, "(int32_t)" + quote(lhs))
-      case DoubleToFloat(lhs) => emitValDef(sym, "(float)" + quote(lhs))    
-      case ObjFloatParseFloat(s) => emitValDef(sym, "strtof(" + quote(s) + ".c_str(),NULL)")
-      case FloatToInt(lhs) => emitValDef(sym, "(int32_t)" + quote(lhs))
-      case FloatToDouble(lhs) => emitValDef(sym, "(double)" + quote(lhs))        
-      case FloatPlus(lhs,rhs) => emitValDef(sym, quote(lhs) + " + " + quote(rhs))
-      case FloatMinus(lhs,rhs) => emitValDef(sym, quote(lhs) + " - " + quote(rhs))
-      case FloatTimes(lhs,rhs) => emitValDef(sym, quote(lhs) + " * " + quote(rhs))
-      case FloatDivide(lhs,rhs) => emitValDef(sym, quote(lhs) + " / " + quote(rhs))      
-      case ObjIntegerParseInt(s) => emitValDef(sym, "atoi(" + quote(s) + ".c_str())")
-      case ObjIntMaxValue() => emitValDef(sym, "INT_MAX")
-      case ObjIntMinValue() => emitValDef(sym, "INT_MIN")    
-      case IntPlus(lhs,rhs) => emitValDef(sym, quote(lhs) + " + " + quote(rhs))
-      case IntMinus(lhs,rhs) => emitValDef(sym, quote(lhs) + " - " + quote(rhs))
-      case IntTimes(lhs,rhs) => emitValDef(sym, quote(lhs) + " * " + quote(rhs))
+      case PrimParse(s, m) =>
+        val src = m.asInstanceOf[Manifest[_]] match {
+          case Manifest.Int => src"atoi($s.c_str())"
+          case Manifest.Long => src"strtod($s.c_str(),NULL)"
+          case Manifest.Float => src"strtof($s.c_str(),NULL)"
+          case Manifest.Double => src"strtod($s,NULL)"
+        }
+        emitValDef(sym, src)
+      case PrimFPPositiveInfinity(m) =>
+        emitValDef(sym, posInfConstant(m))
+      case PrimFPNegativeInfinity(m) =>
+        emitValDef(sym, negInfConstant(m))
+      case PrimMaxValue(m) =>
+        val src = m.asInstanceOf[Manifest[_]] match {
+          case Manifest.Int => "INT32_MAX"
+          case Manifest.Long => "INT64_MAX"
+          case Manifest.Float => "FLT_MAX"
+          case Manifest.Double => "DBL_MAX"
+        }
+        emitValDef(sym, src)
+      case PrimMinValue(m) =>
+        val src = m.asInstanceOf[Manifest[_]] match {
+          case Manifest.Int => "INT32_MIN"
+          case Manifest.Long => "INT64_MIN"
+          case Manifest.Float => "FLT_MIN"
+          case Manifest.Double => "DBL_MIN"
+        }
+        emitValDef(sym, src)
+      case PrimConvert(lhs, _, mB, _) =>
+        val tpe = mB.asInstanceOf[Manifest[_]] match {
+          case Manifest.Int => "int32_t"
+          case Manifest.Long => "int64_t"
+          case Manifest.Float => "float"
+          case Manifest.Double => "double"
+        }
+        emitValDef(sym, src"($tpe)$lhs")
+      case PrimPlus(lhs, rhs, _, _) => emitValDef(sym, quote(lhs) + " + " + quote(rhs))
+      case PrimMinus(lhs, rhs, _, _) => emitValDef(sym, quote(lhs) + " - " + quote(rhs))
+      case PrimTimes(lhs, rhs, _, _) => emitValDef(sym, quote(lhs) + " * " + quote(rhs))
+      case PrimFPDivide(lhs, rhs, _, _) => emitValDef(sym, quote(lhs) + " / " + quote(rhs))
       // case IntDivideFrac(lhs,rhs) => emitValDef(sym, quote(lhs) + " / " + quote(rhs))
-      case IntDivide(lhs,rhs) => emitValDef(sym, quote(lhs) + " / " + quote(rhs))
-      case IntMod(lhs,rhs) => emitValDef(sym, quote(lhs) + " % " + quote(rhs))
-      case IntBitwiseOr(lhs,rhs) => emitValDef(sym, quote(lhs) + " | " + quote(rhs))
-      case IntBitwiseAnd(lhs,rhs) => emitValDef(sym, quote(lhs) + " & " + quote(rhs))
-      case IntBitwiseXor(lhs,rhs) => emitValDef(sym, quote(lhs) + " ^ " + quote(rhs))
-      case IntLeftShift(lhs,rhs) => emitValDef(sym, quote(lhs) + " << " + quote(rhs))
-      case IntRightShiftArith(lhs, rhs) => emitValDef(sym, quote(lhs) + " >> " + quote(rhs))
-      case IntRightShiftLogical(lhs, rhs) => emitValDef(sym, "(uint32_t)" + quote(lhs) + " >> " + quote(rhs))
-      case IntBitwiseNot(lhs) => emitValDef(sym, "~" + quote(lhs))
-      case IntToLong(lhs) => emitValDef(sym, "(int64_t)"+quote(lhs))
-      case IntToFloat(lhs) => emitValDef(sym, "(float)"+quote(lhs))
-      case IntToDouble(lhs) => emitValDef(sym, "(double)"+quote(lhs))
-      case ObjLongParseLong(s) => emitValDef(sym, "strtod(" + quote(s) + ".c_str(),NULL)")
-      case LongMod(lhs,rhs) => emitValDef(sym, quote(lhs) + " % " + quote(rhs))
-      case LongBitwiseOr(lhs,rhs) => emitValDef(sym, quote(lhs) + " | " + quote(rhs))
-      case LongBitwiseAnd(lhs,rhs) => emitValDef(sym, quote(lhs) + " & " + quote(rhs))
-      case LongLeftShift(lhs,rhs) => emitValDef(sym, quote(lhs) + " << " + quote(rhs))
-      case LongRightShiftUnsigned(lhs,rhs) => emitValDef(sym, "(uint64_t)" + quote(lhs) + " >> " + quote(rhs))    
-      case LongToInt(lhs) => emitValDef(sym, "(int32_t)"+quote(lhs))
+      case PrimIntegralDivide(lhs, rhs, _, _) => emitValDef(sym, quote(lhs) + " / " + quote(rhs))
+      case PrimIntegralMod(lhs, rhs, _, _) => emitValDef(sym, quote(lhs) + " % " + quote(rhs))
+      case PrimIntegralBitwiseOr(lhs, rhs, _) => emitValDef(sym, quote(lhs) + " | " + quote(rhs))
+      case PrimIntegralBitwiseAnd(lhs, rhs, _) => emitValDef(sym, quote(lhs) + " & " + quote(rhs))
+      case PrimIntegralBitwiseXor(lhs, rhs, _) => emitValDef(sym, quote(lhs) + " ^ " + quote(rhs))
+      case PrimIntegralLeftShift(lhs, rhs, _) => emitValDef(sym, quote(lhs) + " << " + quote(rhs))
+      case PrimIntegralRightShiftArith(lhs, rhs, _) => emitValDef(sym, quote(lhs) + " >> " + quote(rhs))
+      case PrimIntegralRightShiftLogical(lhs, rhs, m) =>
+        val tpe = m.asInstanceOf[Manifest[_]] match {
+          case Manifest.Int => "uint32_t"
+          case Manifest.Long => "uint64_t"
+        }
+        emitValDef(sym, src"($tpe)$lhs >> $rhs")
+      case PrimIntegralBitwiseNot(lhs, _) => emitValDef(sym, "~" + quote(lhs))
       case _ => super.emitNode(sym, rhs)
     }
   }
@@ -753,12 +667,16 @@ trait CudaGenPrimitiveOps extends CudaGenBase with CLikeGenPrimitiveOps {
   val IR: PrimitiveOpsExp
   import IR._
 
-  override def emitNode(sym: Sym[Any], rhs: Def[Any]) = {
-    rhs match {
-      case ObjDoublePositiveInfinity() => emitValDef(sym, "__longlong_as_double(0x7ff0000000000000ULL)")
-      case ObjDoubleNegativeInfinity() => emitValDef(sym, "__longlong_as_double(0xfff0000000000000ULL)")
-      case _ => super.emitNode(sym, rhs)
-    }
+  override def posInfConstant(m: Manifest[_]): String = m match {
+    case Manifest.Float => "__int_as_float(0x7f800000)"
+    case Manifest.Double => "__longlong_as_double(0x7ff0000000000000ULL)"
+    case _ => super.posInfConstant(m)
+  }
+
+  override def negInfConstant(m: Manifest[_]): String = m match {
+    case Manifest.Float => "__int_as_float(0xff800000)"
+    case Manifest.Double => "__longlong_as_double(0xfff0000000000000ULL)"
+    case _ => super.negInfConstant(m)
   }
 }
 
@@ -768,11 +686,7 @@ trait CGenPrimitiveOps extends CGenBase with CLikeGenPrimitiveOps {
   val IR: PrimitiveOpsExp
   import IR._
 
-  override def emitNode(sym: Sym[Any], rhs: Def[Any]) = {
-    rhs match {
-      case ObjDoublePositiveInfinity() => emitValDef(sym, "INFINITY")
-      case ObjDoubleNegativeInfinity() => emitValDef(sym, "-INFINITY")
-      case _ => super.emitNode(sym, rhs)
-    }
-  }
+  override def posInfConstant(m: Manifest[_]): String = "INFINITY"
+
+  override def negInfConstant(m: Manifest[_]): String = "-INFINITY"
 }
