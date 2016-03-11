@@ -16,6 +16,7 @@ trait HashMapOps extends Base {
 
   class hashmapOpsCls[K:Manifest,V:Manifest](m: Rep[HashMap[K,V]]) {
     def apply(k: Rep[K])(implicit pos: SourceContext) = hashmap_apply(m, k)
+    def getOrElse(k: Rep[K], orelse: => Rep[V])(implicit pos: SourceContext) = hashmap_getOrElse(m, k, orelse)
     def update(k: Rep[K], v: Rep[V])(implicit pos: SourceContext) = hashmap_update(m,k,v)
     def contains(k: Rep[K])(implicit pos: SourceContext) = hashmap_contains(m, k)
     def size(implicit pos: SourceContext) = hashmap_size(m)
@@ -27,6 +28,7 @@ trait HashMapOps extends Base {
 
   def hashmap_new[K:Manifest,V:Manifest]()(implicit pos: SourceContext) : Rep[HashMap[K,V]]
   def hashmap_apply[K:Manifest,V:Manifest](m: Rep[HashMap[K,V]], k: Rep[K])(implicit pos: SourceContext): Rep[V]
+  def hashmap_getOrElse[K:Manifest,V:Manifest](m: Rep[HashMap[K,V]], k: Rep[K], orelse: => Rep[V])(implicit pos: SourceContext): Rep[V]
   def hashmap_update[K:Manifest,V:Manifest](m: Rep[HashMap[K,V]], k: Rep[K], v: Rep[V])(implicit pos: SourceContext): Rep[Unit]
   def hashmap_unsafe_update[K:Manifest,V:Manifest](m: Rep[HashMap[K,V]], k: Rep[K], v: Rep[V])(implicit pos: SourceContext): Rep[Unit]
   def hashmap_contains[K:Manifest,V:Manifest](m: Rep[HashMap[K,V]], i: Rep[K])(implicit pos: SourceContext): Rep[Boolean]
@@ -44,6 +46,7 @@ trait HashMapOpsExp extends HashMapOps with EffectExp {
   }
   case class HashMapNew[K:Manifest,V:Manifest]() extends HashMapDef[K,V,HashMap[K,V]] 
   case class HashMapApply[K:Manifest,V:Manifest](m: Exp[HashMap[K,V]], k: Exp[K]) extends HashMapDef[K,V,V]
+  case class HashMapGetOrElse[K:Manifest,V:Manifest](m: Exp[HashMap[K,V]], k: Exp[K], orelse: Block[V]) extends HashMapDef[K,V,V]
   case class HashMapUpdate[K:Manifest,V:Manifest](m: Exp[HashMap[K,V]], k: Exp[K], v: Exp[V]) extends HashMapDef[K,V,Unit]
   case class HashMapContains[K:Manifest,V:Manifest](m: Exp[HashMap[K,V]], i: Exp[K]) extends HashMapDef[K,V,Boolean]
   case class HashMapSize[K:Manifest,V:Manifest](m: Exp[HashMap[K,V]]) extends HashMapDef[K,V,Int]
@@ -54,6 +57,7 @@ trait HashMapOpsExp extends HashMapOps with EffectExp {
 
   def hashmap_new[K:Manifest,V:Manifest]()(implicit pos: SourceContext) = reflectMutable(HashMapNew[K,V]())
   def hashmap_apply[K:Manifest,V:Manifest](m: Exp[HashMap[K,V]], k: Exp[K])(implicit pos: SourceContext) = HashMapApply(m,k)
+  def hashmap_getOrElse[K:Manifest,V:Manifest](m: Exp[HashMap[K,V]], k: Exp[K], orelse: =>Rep[V])(implicit pos: SourceContext) = HashMapGetOrElse(m,k, reifyEffects(orelse))
   def hashmap_update[K:Manifest,V:Manifest](m: Exp[HashMap[K,V]], k: Exp[K], v: Exp[V])(implicit pos: SourceContext) = reflectWrite(m)(HashMapUpdate(m,k,v))
   def hashmap_unsafe_update[K:Manifest,V:Manifest](m: Exp[HashMap[K,V]], k: Exp[K], v: Exp[V])(implicit pos: SourceContext) = reflectEffect(HashMapUpdate(m,k,v))
   def hashmap_contains[K:Manifest,V:Manifest](m: Exp[HashMap[K,V]], i: Exp[K])(implicit pos: SourceContext) = HashMapContains(m, i)
@@ -66,6 +70,7 @@ trait HashMapOpsExp extends HashMapOps with EffectExp {
   override def mirror[A:Manifest](e: Def[A], f: Transformer)(implicit pos: SourceContext): Exp[A] = {
     (e match {
       case e@HashMapApply(m,k) => hashmap_apply(f(m),f(k))(e.mK,e.mV,pos)
+      case e: HashMapGetOrElse[k,v] => hashmap_getOrElse(f(e.m),f(e.k),f.reflectBlock(e.orelse))(e.mK,e.mV,pos)
       case e@HashMapKeys(m) => hashmap_keys(f(m))(e.mK,e.mV,pos)
       case e@HashMapValues(m) => hashmap_values(f(m))(e.mK,e.mV,pos)
       case e@HashMapContains(m,k) => hashmap_contains(f(m),f(k))(e.mK,e.mV,pos)
@@ -98,6 +103,11 @@ trait ScalaGenHashMapOps extends BaseGenHashMapOps with ScalaGenEffect {
   override def emitNode(sym: Sym[Any], rhs: Def[Any]) = rhs match {
     case m@HashMapNew() => emitValDef(sym, "new java.util.HashMap[" + remap(m.mK) + "," + remap(m.mV) + "]()")
     case HashMapApply(m,k) => emitValDef(sym, quote(m) + ".get(" + quote(k) + ")")
+    case HashMapGetOrElse(m,k,orelse) =>
+      stream.println("val " + quote(sym) + " = " + quote(m) + ".getOrDefault(" + quote(k) + ", {")
+      emitBlock(orelse)
+      stream.println(quote(getBlockResult(orelse)))
+      stream.println("})")
     case HashMapUpdate(m,k,v)  => emitValDef(sym, quote(m) + ".put(" + quote(k) + ", " + quote(v) + ")")
     case HashMapContains(m,i) => emitValDef(sym, quote(m) + ".containsKey(" + quote(i) + ")")
     case HashMapSize(m) => emitValDef(sym, quote(m) + ".size")
