@@ -104,10 +104,10 @@ trait ScalaGenHashMapOps extends BaseGenHashMapOps with ScalaGenEffect {
     case m@HashMapNew() => emitValDef(sym, "new java.util.HashMap[" + remap(m.mK) + "," + remap(m.mV) + "]()")
     case HashMapApply(m,k) => emitValDef(sym, quote(m) + ".get(" + quote(k) + ")")
     case HashMapGetOrElse(m,k,orelse) =>
-      stream.println("val " + quote(sym) + " = " + quote(m) + ".getOrDefault(" + quote(k) + ", {")
-      emitBlock(orelse)
-      stream.println(quote(getBlockResult(orelse)))
-      stream.println("})")
+      gen"""val $sym = $m.getOrDefault($k, {
+            |${nestedBlock(orelse)}
+            |$orelse
+            |})"""
     case HashMapUpdate(m,k,v)  => emitValDef(sym, quote(m) + ".put(" + quote(k) + ", " + quote(v) + ")")
     case HashMapContains(m,i) => emitValDef(sym, quote(m) + ".containsKey(" + quote(i) + ")")
     case HashMapSize(m) => emitValDef(sym, quote(m) + ".size")
