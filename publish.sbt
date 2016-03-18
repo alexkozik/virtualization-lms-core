@@ -2,7 +2,7 @@
 
 publishMavenStyle := true
 
-publishArtifact in Test := false
+publishArtifact in Test := true
 
 pomIncludeRepository := { _ => false }
 
