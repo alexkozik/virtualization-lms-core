@@ -382,9 +382,9 @@ trait Effects extends Expressions with Blocks with Utils {
   def checkIllegalSharing(z: Exp[Any], mutableAliases: List[Sym[Any]]) {
     if (mutableAliases.nonEmpty) {
       val zd = z match { case Def(zd) => zd }
-      printerr("error: illegal sharing of mutable objects " + mutableAliases.mkString(", "))
-      printerr("at " + z + "=" + zd)
-      printsrc("in " + quotePos(z))
+//      printerr("error: illegal sharing of mutable objects " + mutableAliases.mkString(", "))
+//      printerr("at " + z + "=" + zd)
+//      printsrc("in " + quotePos(z))
     }
   }
   
